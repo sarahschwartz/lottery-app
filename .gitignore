@@ -3,3 +3,4 @@ artifacts
 cache
 ignition/deployments
 .DS_Store
+.env
