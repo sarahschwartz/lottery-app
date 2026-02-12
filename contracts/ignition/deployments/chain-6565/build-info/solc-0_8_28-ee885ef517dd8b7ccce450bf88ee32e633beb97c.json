@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-ee885ef517dd8b7ccce450bf88ee32e633beb97c",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/NumberGuessingGame.sol": "project/contracts/NumberGuessingGame.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/NumberGuessingGame.sol": {
+        "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.28;\n\ncontract NumberGuessingGame {\n  struct Session {\n    uint32 maxNumber;\n    uint32 winningNumber;\n    uint64 drawTimestamp;\n    uint256 payout;\n    address winner;\n    bool winningNumberSet;\n    bool payoutClaimed;\n  }\n\n  address public admin;\n  uint256 public nextSessionId;\n\n  mapping(uint256 => Session) public sessions;\n  mapping(uint256 => mapping(uint32 => address)) public pickedByNumber;\n  mapping(uint256 => mapping(address => uint32)) public pickedNumberByPlayer;\n  mapping(uint256 => mapping(address => bool)) public hasPicked;\n\n  event SessionCreated(\n    uint256 indexed sessionId,\n    uint32 maxNumber,\n    uint256 payout,\n    uint64 drawTimestamp\n  );\n  event NumberPicked(\n    uint256 indexed sessionId,\n    address indexed player,\n    uint32 number\n  );\n  event WinningNumberSet(\n    uint256 indexed sessionId,\n    uint32 winningNumber,\n    address winner\n  );\n  event PayoutClaimed(\n    uint256 indexed sessionId,\n    address indexed winner,\n    uint256 amount\n  );\n  event EmergencyWithdrawal(address indexed to, uint256 amount);\n  event AdminChanged(address indexed previousAdmin, address indexed newAdmin);\n\n  modifier onlyAdmin() {\n    require(msg.sender == admin, \"only admin\");\n    _;\n  }\n\n  constructor() {\n    admin = msg.sender;\n  }\n\n  function changeAdmin(address newAdmin) external onlyAdmin {\n    require(newAdmin != address(0), \"invalid admin\");\n    address previousAdmin = admin;\n    admin = newAdmin;\n    emit AdminChanged(previousAdmin, newAdmin);\n  }\n\n  function createSession(uint32 maxNumber) external payable onlyAdmin returns (uint256 sessionId) {\n    require(maxNumber > 0, \"maxNumber must be > 0\");\n    require(msg.value > 0, \"payout must be > 0\");\n\n    sessionId = nextSessionId;\n    nextSessionId++;\n\n    uint64 drawTimestamp = uint64(block.timestamp + 1 days);\n    sessions[sessionId] = Session({\n      maxNumber: maxNumber,\n      winningNumber: 0,\n      drawTimestamp: drawTimestamp,\n      payout: msg.value,\n      winner: address(0),\n      winningNumberSet: false,\n      payoutClaimed: false\n    });\n\n    emit SessionCreated(sessionId, maxNumber, msg.value, drawTimestamp);\n  }\n\n  function pickNumber(uint256 sessionId, uint32 number) external {\n    Session storage session = _getSession(sessionId);\n    require(!session.winningNumberSet, \"winner already chosen\");\n    require(block.timestamp < session.drawTimestamp, \"session closed\");\n    require(number >= 1 && number <= session.maxNumber, \"number out of range\");\n    require(!hasPicked[sessionId][msg.sender], \"already picked\");\n    require(pickedByNumber[sessionId][number] == address(0), \"number already picked\");\n\n    pickedByNumber[sessionId][number] = msg.sender;\n    pickedNumberByPlayer[sessionId][msg.sender] = number;\n    hasPicked[sessionId][msg.sender] = true;\n\n    emit NumberPicked(sessionId, msg.sender, number);\n  }\n\n  function setWinningNumber(uint256 sessionId, uint32 winningNumber) external onlyAdmin {\n    Session storage session = _getSession(sessionId);\n    require(!session.winningNumberSet, \"winning number already set\");\n    require(block.timestamp >= session.drawTimestamp, \"too early\");\n    require(winningNumber >= 1 && winningNumber <= session.maxNumber, \"number out of range\");\n\n    session.winningNumber = winningNumber;\n    session.winningNumberSet = true;\n    session.winner = pickedByNumber[sessionId][winningNumber];\n\n    emit WinningNumberSet(sessionId, winningNumber, session.winner);\n  }\n\n  function claimPayout(uint256 sessionId) external {\n    Session storage session = _getSession(sessionId);\n    require(session.winningNumberSet, \"winning number not set\");\n    require(!session.payoutClaimed, \"payout already claimed\");\n    require(session.winner != address(0), \"no winner\");\n    require(msg.sender == session.winner, \"not winner\");\n\n    uint256 amount = session.payout;\n    session.payout = 0;\n    session.payoutClaimed = true;\n\n    (bool sent, ) = payable(msg.sender).call{value: amount}(\"\");\n    require(sent, \"payout transfer failed\");\n\n    emit PayoutClaimed(sessionId, msg.sender, amount);\n  }\n\n  function emergencyWithdraw(address payable to, uint256 amount) external onlyAdmin {\n    require(to != address(0), \"invalid recipient\");\n    require(amount <= address(this).balance, \"insufficient balance\");\n\n    (bool sent, ) = to.call{value: amount}(\"\");\n    require(sent, \"withdraw transfer failed\");\n\n    emit EmergencyWithdrawal(to, amount);\n  }\n\n  function getPickedNumber(uint256 sessionId, address player) external view returns (uint32) {\n    require(hasPicked[sessionId][player], \"player has not picked\");\n    return pickedNumberByPlayer[sessionId][player];\n  }\n\n  function _getSession(uint256 sessionId) internal view returns (Session storage session) {\n    session = sessions[sessionId];\n    require(session.maxNumber != 0, \"session does not exist\");\n  }\n}\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "contracts",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "hardhat test",
+    "deploy-game": "hardhat ignition deploy --network localPrividium ignition/modules/Game.ts",
+    "create-new-session": "hardhat run scripts/create-session.ts --network localPrividium"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^3.0.7",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.2",
+    "@types/node": "^22.19.11",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "hardhat": "^3.1.8",
+    "typescript": "~5.8.0",
+    "viem": "^2.45.3"
+  }
+}
