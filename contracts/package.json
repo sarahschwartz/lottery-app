@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy-game": "hardhat ignition deploy --network localPrividium ignition/modules/Game.ts",
     "create-new-session": "hardhat run scripts/create-session.ts --network localPrividium"

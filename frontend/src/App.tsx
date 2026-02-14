@@ -2,14 +2,16 @@ import { LoaderCircle, TriangleAlert } from "lucide-react";
 import "./App.css";
 import { LoggedInView } from "./components/LoggedInView";
 import { usePrividium } from "./utils/usePrividium";
+import { injected, useConnect, useConnection } from "wagmi";
 
 function App() {
   const { isAuthenticated, isAuthenticating, authError, authenticate } =
     usePrividium();
+  const { isConnected, isConnecting } = useConnection();
+  const connect = useConnect();
 
   const login = async () => {
     const success = await authenticate();
-    console.log("SUCCESS:", success);
     if (success) {
       window.location.reload();
     }
@@ -18,11 +20,20 @@ function App() {
   return (
     <div className="min-h-screen">
       {isAuthenticated ? (
-        <div>
-          <p>
+        <>
+          {!isConnected ? (
+            <button
+              type="button"
+              disabled={isConnecting}
+              onClick={() => connect.mutate({ connector: injected() })}
+              className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isConnecting ? "Connecting wallet..." : "Connect wallet to play"}
+            </button>
+          ) : (
             <LoggedInView />
-          </p>
-        </div>
+          )}
+        </>
       ) : (
         <div>
           <p>You are NOT authenticated 🥺</p>
