@@ -47,7 +47,11 @@ function App() {
             </div>
           )}
 
-          {isAuthenticating && <LoaderCircle className="animate-spin" />}
+          {isAuthenticating && (
+          <div className="w-full place-items-center">
+            <LoaderCircle className="animate-spin" />
+            </div>
+        )}
 
           <button
             onClick={login}

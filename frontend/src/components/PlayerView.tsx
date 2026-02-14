@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatEther, type Client } from "viem";
 import { useConnection } from "wagmi";
 import { usePrividium } from "../utils/usePrividium";
-import { formatTimeLeft } from "../utils/countdown";
+import { formatTimeLeft } from "../utils/game";
 import type { SessionResult, SessionState } from "../utils/types";
 import { sendClaimPayoutTx, sendPickNumberTx } from "../utils/txns";
 

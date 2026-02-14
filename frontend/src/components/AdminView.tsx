@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatEther, parseEther, type Client } from "viem";
-import { formatTimeLeft } from "../utils/countdown";
-import type { SessionResult, SessionState } from "../utils/types";
+import {
+  formatTimeLeft,
+  getPreviousSessions,
+  getRandomWinningNumber,
+  getSessionInfo,
+} from "../utils/game";
+import type {
+  BlockReader,
+  PreviousSessionRow,
+  SessionResult,
+  SessionState,
+} from "../utils/types";
 import { usePrividium } from "../utils/usePrividium";
 import { sendCreateSessionTx, sendSetWinningNumberTx } from "../utils/txns";
 
 const DEFAULT_SESSION_PAYOUT_ETH = "0.1";
-type BlockReader = { getBlock: () => Promise<{ timestamp: bigint }> };
 
 interface Props {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,22 +24,13 @@ interface Props {
   chainNowSec: number | null;
 }
 
-type PreviousSessionRow = {
-  sessionId: bigint;
-  winningNumber: number;
-  payout: bigint;
-  winner: `0x${string}`;
-  payoutClaimed: boolean;
-  winningNumberSet: boolean;
-};
-
 export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
   const { prividium } = usePrividium();
 
   const [session, setSession] = useState<SessionState | null>(null);
-  const [previousSessions, setPreviousSessions] = useState<PreviousSessionRow[]>(
-    [],
-  );
+  const [previousSessions, setPreviousSessions] = useState<
+    PreviousSessionRow[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,31 +49,11 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     setError(null);
 
     try {
-      const nextSessionId = (await gameContract.read.nextSessionId()) as bigint;
-      const createdEvents = await gameContract.getEvents.SessionCreated({
-        fromBlock: 0n,
-        toBlock: "latest",
-      });
-      const claimedEvents = await gameContract.getEvents.PayoutClaimed({
-        fromBlock: 0n,
-        toBlock: "latest",
-      });
-      const createdPayoutBySessionId = new Map<string, bigint>();
-      const claimedPayoutBySessionId = new Map<string, bigint>();
-      for (const event of createdEvents) {
-        const sessionId = event.args?.sessionId as bigint | undefined;
-        const createdPayout = event.args?.payout as bigint | undefined;
-        if (sessionId !== undefined && createdPayout !== undefined) {
-          createdPayoutBySessionId.set(sessionId.toString(), createdPayout);
-        }
-      }
-      for (const event of claimedEvents) {
-        const sessionId = event.args?.sessionId as bigint | undefined;
-        const claimedAmount = event.args?.amount as bigint | undefined;
-        if (sessionId !== undefined && claimedAmount !== undefined) {
-          claimedPayoutBySessionId.set(sessionId.toString(), claimedAmount);
-        }
-      }
+      const {
+        nextSessionId,
+        createdPayoutBySessionId,
+        claimedPayoutBySessionId,
+      } = await getSessionInfo(gameContract);
 
       if (nextSessionId === 0n) {
         setSession(null);
@@ -96,29 +76,12 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
         payoutClaimed: rawSession[6],
       });
 
-      const previous: PreviousSessionRow[] = [];
-      if (latestSessionId > 0n) {
-        for (let sid = latestSessionId - 1n; sid >= 0n; sid -= 1n) {
-          const raw = (await gameContract.read.sessions([sid])) as SessionResult;
-          const livePayout = raw[3];
-          const displayedPayout =
-            livePayout > 0n
-              ? livePayout
-              : (claimedPayoutBySessionId.get(sid.toString()) ??
-                createdPayoutBySessionId.get(sid.toString()) ??
-                livePayout);
-          previous.push({
-            sessionId: sid,
-            winningNumber: Number(raw[1]),
-            payout: displayedPayout,
-            winner: raw[4],
-            winningNumberSet: raw[5],
-            payoutClaimed: raw[6],
-          });
-
-          if (sid === 0n) break;
-        }
-      }
+      const previous = await getPreviousSessions(
+        latestSessionId,
+        gameContract,
+        createdPayoutBySessionId,
+        claimedPayoutBySessionId,
+      );
       setPreviousSessions(previous);
     } catch (loadError) {
       const message =
@@ -139,10 +102,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     if (!session) return 0;
     if (chainNowSec === null) return 1;
     const currentSec = chainNowSec;
-    return Math.max(
-      0,
-      Number(session.drawTimestamp) - currentSec,
-    );
+    return Math.max(0, Number(session.drawTimestamp) - currentSec);
   }, [chainNowSec, session]);
 
   const isDone = useMemo(() => {
@@ -160,13 +120,6 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     return isDone && session.winningNumberSet;
   }, [isDone, session]);
 
-  function getRandomWinningNumber(maxNumber: number): number {
-  if (maxNumber <= 1) return 1;
-  const randomBuffer = new Uint32Array(1);
-  window.crypto.getRandomValues(randomBuffer);
-  return (randomBuffer[0] % maxNumber) + 1;
-}
-
   const chooseWinner = async () => {
     if (!session || !canChooseWinner) return;
 
@@ -177,7 +130,9 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     setTxSuccess(null);
 
     try {
-      const latestBlock = await (rpcClient as unknown as BlockReader).getBlock();
+      const latestBlock = await (
+        rpcClient as unknown as BlockReader
+      ).getBlock();
       const currentSec = Number(latestBlock.timestamp);
       if (currentSec < Number(session.drawTimestamp)) {
         const remaining = Number(session.drawTimestamp) - currentSec;
@@ -428,7 +383,9 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
               Previous Sessions
             </h2>
             {previousSessions.length === 0 ? (
-              <p className="text-sm text-slate-600">No previous sessions yet.</p>
+              <p className="text-sm text-slate-600">
+                No previous sessions yet.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm text-slate-700">
@@ -447,7 +404,9 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                         key={row.sessionId.toString()}
                         className="border-b border-slate-100 last:border-b-0"
                       >
-                        <td className="px-2 py-2">#{row.sessionId.toString()}</td>
+                        <td className="px-2 py-2">
+                          #{row.sessionId.toString()}
+                        </td>
                         <td className="px-2 py-2">
                           {row.winningNumberSet ? row.winningNumber : "—"}
                         </td>

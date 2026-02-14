@@ -9,3 +9,13 @@ export type SessionState = {
 };
 
 export type SessionResult = readonly [number, number, bigint, bigint, `0x${string}`, boolean, boolean];
+
+export type BlockReader = { getBlock: () => Promise<{ timestamp: bigint }> };
+export type PreviousSessionRow = {
+  sessionId: bigint;
+  winningNumber: number;
+  payout: bigint;
+  winner: `0x${string}`;
+  payoutClaimed: boolean;
+  winningNumberSet: boolean;
+};
