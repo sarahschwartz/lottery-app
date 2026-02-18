@@ -5,8 +5,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy-game": "hardhat ignition deploy --network localPrividium ignition/modules/Game.ts",
-    "create-new-session": "hardhat run scripts/create-session.ts --network localPrividium"
+    "deploy-game": "hardhat ignition deploy --network localPrividium ignition/modules/Game.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.7",

@@ -9,9 +9,20 @@ Built for Prividium™️.
 
 Run a local Prividium chain with [`local-prividium`](https://github.com/matter-labs/local-prividium).
 
-### Fund your admin account
+### Sign in and fund your admin account
 
-Make sure you have an admin account with funds for contract deployment.
+In your metamask wallet add an account from this private key: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`.
+
+Then go to [`http://localhost:3001/`](http://localhost:3001/) and sign in with this wallet.
+
+Click on the "Wallets" tab in the user panel and then click on the "Add Network to Wallet" button.
+If you have previously added the network to your metamask, you may have to edit the network configuration to make sure the correct RPC Access token is being used by deleting the old RPC urls.
+
+Finally, run the command below to ensure the account has some funds:
+
+```bash
+cast send -r http://localhost:5050 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266  --value 10000000000000000000 --private-key 0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110
+```
 
 ### Install contract deps
 
@@ -38,14 +49,19 @@ bun deploy-game
 
 Add the contract and ABI to the admin panel contracts.
 
-`changeAdmin`: admin only
-`createSession`: admin only
-`pickNumber`: admin only
-`pickNumber`: users only
-`setWinningNumber`: admin only
-`withdrawContractFunds`: admin only
+> To copy the abi, go into the `contracts/artifacts/contracts/NumberGuessingGame.sol/NumberGuessingGame.json` file
+> and copy the entire array for the `"abi"`.
 
-All other functions should allowed for any user.
+Then configure the permissions for the contract as shown below:
+
+`changeAdmin`: check role, admin only
+`createSession`: check role, admin only
+`pickNumber`: check role, admin only
+`pickNumber`: check role, users only
+`setWinningNumber`: check role, admin only
+`withdrawContractFunds`: check role, admin only
+
+All other functions should allowed for all users.
 
 ### Create a new application ID
 
@@ -55,7 +71,7 @@ The whitelisted origin should be `http://localhost:5173` and the redirect URI sh
 ### Configure the frontend `.env` file
 
 Use the `.env.example` file as a template.
-Add the deployed contract address and the app ID as the `VITE_CLIENT_ID`.
+Add the deployed contract address and the OAuth Client ID as the `VITE_CLIENT_ID`.
 
 ### Run the frontend
 
@@ -73,7 +89,9 @@ Select the max numbers that can be guessed, the length of time the session will 
 
 ### Play the game
 
-Log in to the user panel as a non-admin user.
+Log in to the user panel as a non-admin user, ideally using another browser to make it easier to switch between the admin and the user.
+Use the keycloak login `user@local.dev` with the password `password` to login, then add a wallet to associate with the account.
+Follows the same setup steps as the admin to add the network to metamask and fund the wallet (just change the destination address in the `cast` command).
 Then open the app to guess a number for the session.
 
 ### Draw the winner

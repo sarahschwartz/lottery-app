@@ -33,7 +33,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const loadSession = useCallback(async () => {
-    if (!GAME_CONTRACT_ADDRESS) {
+    if (!GAME_CONTRACT_ADDRESS || !gameContract) {
       setError("Game contract is not configured.");
       setIsLoading(false);
       return;
@@ -201,7 +201,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   }, [claimSession, session]);
 
   const pickNumber = async () => {
-    if (!session || !selectedNumber || !GAME_CONTRACT_ADDRESS) return;
+    if (!session || !selectedNumber || !gameContract || !rpcClient) return;
 
     setIsSubmitting(true);
     setTxError(null);
