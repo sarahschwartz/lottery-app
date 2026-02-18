@@ -248,6 +248,8 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     }
   };
 
+  const winnerCongrats = (sessionId: string) => `🎉 Congrats! You are the winner of session ${sessionId}!`
+
   return (
     <>
       <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -313,7 +315,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
             {showClaimRewardFirst ? (
               <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <p className="text-sm text-emerald-700">
-                  🎉 Congrats! You are the winner of session {claimSession?.sessionId.toString()}!
+                  {winnerCongrats(session.sessionId.toString())}
                 </p>
                 <p className="text-sm text-emerald-700">
                   Claim your reward before playing again.
@@ -331,7 +333,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
               </div>
             ) : isWinner ? (
               <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                congrats! You are the winner of session ({session.sessionId.toString()})
+                {winnerCongrats(session.sessionId.toString())}
               </p>
             ) : (
               <>

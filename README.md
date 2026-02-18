@@ -91,7 +91,11 @@ Select the max numbers that can be guessed, the length of time the session will 
 
 Log in to the user panel as a non-admin user, ideally using another browser to make it easier to switch between the admin and the user.
 Use the keycloak login `user@local.dev` with the password `password` to login, then add a wallet to associate with the account.
+
 Follows the same setup steps as the admin to add the network to metamask and fund the wallet (just change the destination address in the `cast` command).
+
+Make sure in the admin panel that this user has the role `user`,
+or else an error will occur when trying to pick a number.
 Then open the app to guess a number for the session.
 
 ### Draw the winner
