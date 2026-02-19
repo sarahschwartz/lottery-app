@@ -3,10 +3,24 @@ import "./App.css";
 import { LoggedInView } from "./components/LoggedInView";
 import { usePrividium } from "./hooks/usePrividium";
 import { Header } from "./components/Header";
+import { NavBar } from "./components/NavBar";
+import { useEffect, useMemo, useState } from "react";
+import { createPrividiumClient } from "prividium";
+import { prividiumChain } from "./utils/wagmi";
+import { useSsoAccount } from "./hooks/useSSOAccount";
+import type { Address, PublicClient } from "viem";
 
 function App() {
-  const { isAuthenticated, isAuthenticating, authError, authenticate } =
+  const [accountBalance, setAccountBalance] = useState<bigint | null>(null);
+    const [completedAccountAddress, setCompletedAccountAddress] =
+    useState<Address | null>(null);
+    
+  const { isAuthenticated, isAuthenticating, authError, authenticate, prividium } =
     usePrividium();
+     const { account } = useSsoAccount();
+
+  const address = completedAccountAddress || account || undefined;
+
 
   const login = async () => {
     const success = await authenticate();
@@ -15,8 +29,46 @@ function App() {
     }
   };
 
+    const rpcClient = useMemo(() => {
+    if (isAuthenticated && address) {
+      return createPrividiumClient({
+        chain: prividiumChain,
+        transport: prividium.transport,
+        account: address,
+      });
+    }
+  }, [address, prividium.transport, isAuthenticated]);
+
+   useEffect(() => {
+    let isMounted = true;
+
+    const syncBalance = async () => {
+      if (!rpcClient || !address) {
+        if (isMounted) setAccountBalance(null);
+        return;
+      }
+
+      try {
+        const balance = await rpcClient.getBalance({ address });
+        if (isMounted) setAccountBalance(balance);
+      } catch (err) {
+        console.error("Failed to load account balance:", err);
+      }
+    };
+
+    void syncBalance();
+    const interval = setInterval(() => void syncBalance(), 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [address, rpcClient]);
+
   return (
     <div className="min-h-screen flex flex-col font-sans">
+            <NavBar accountBalance={accountBalance} />
+
       <div className="grow container mx-auto px-4 py-12 max-w-7xl">
         <div className="min-h-[70vh] flex items-center justify-center p-6">
           <div
@@ -40,7 +92,7 @@ function App() {
               )}
 
               {isAuthenticated ? (
-                <LoggedInView />
+                <LoggedInView accountBalance={accountBalance} rpcClient={rpcClient as PublicClient} address={address} setCompletedAccountAddress={setCompletedAccountAddress} />
               ) : (
                 <div className="space-y-6">
                   <button
