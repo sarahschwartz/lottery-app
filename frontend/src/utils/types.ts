@@ -3,6 +3,7 @@ import type { Address, Hex } from "viem";
 export type SessionState = {
   sessionId: bigint;
   maxNumber: number;
+  winningNumber: number;
   drawTimestamp: bigint;
   payout: bigint;
   winner: `0x${string}`;

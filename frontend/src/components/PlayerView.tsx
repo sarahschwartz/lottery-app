@@ -71,6 +71,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
       setSession({
         sessionId: latestSessionId,
         maxNumber,
+        winningNumber: Number(rawSession[1]),
         drawTimestamp,
         payout,
         winner: rawSession[5],
@@ -114,6 +115,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
             unclaimedWinningSession = {
               sessionId: sid,
               maxNumber: Number(raw[0]),
+              winningNumber: Number(raw[1]),
               drawTimestamp: raw[2],
               payout: raw[3],
               winner,
@@ -357,9 +359,11 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                     Your pick for this session: <strong>{myPickedNumber}</strong>
                   </p>
                 ) : (
+                  <>
                   <p className="text-sm text-slate-600">
-                    Choose one available number between 1 and {session.maxNumber}.
+                    {isSessionClosed ? "Session is closed." : `Choose one available number between 1 and ${session.maxNumber}.`}
                   </p>
+                  </>
                 )}
 
                 <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10">

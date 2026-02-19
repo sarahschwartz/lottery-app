@@ -14,6 +14,7 @@ import type {
 } from "../utils/types";
 import { usePrividium } from "../hooks/usePrividium";
 import { useGameContract } from "../hooks/useGameContract";
+import { Check } from "lucide-react";
 
 const DEFAULT_SESSION_PAYOUT_ETH = "0.1";
 
@@ -77,6 +78,7 @@ export function AdminView({
       setSession({
         sessionId: latestSessionId,
         maxNumber: Number(rawSession[0]),
+        winningNumber: Number(rawSession[1]),
         drawTimestamp: rawSession[2],
         payout: rawSession[3],
         winner: rawSession[5],
@@ -127,6 +129,29 @@ export function AdminView({
     if (!session) return true;
     return isDone && session.winningNumberSet;
   }, [isDone, session]);
+
+  const activeSession = useMemo(() => {
+    if (!session) return null;
+    return isDone ? null : session;
+  }, [isDone, session]);
+
+  const displayedPreviousSessions = useMemo(() => {
+    if (!session || !isDone) return previousSessions;
+
+    const latestClosedRow: PreviousSessionRow = {
+      sessionId: session.sessionId,
+      winningNumber: session.winningNumber,
+      payout: session.payout,
+      winner: session.winner,
+      winningNumberSet: session.winningNumberSet,
+      payoutClaimed: session.payoutClaimed,
+    };
+
+    return [
+      latestClosedRow,
+      ...previousSessions.filter((row) => row.sessionId !== session.sessionId),
+    ];
+  }, [isDone, previousSessions, session]);
 
   const parsedPayout = useMemo(() => {
     try {
@@ -260,14 +285,14 @@ export function AdminView({
 
       {!isLoading && !error && (
         <div className="space-y-6">
-          {session ? (
+          {activeSession ? (
             <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">
                   Session
                 </p>
                 <p className="text-sm font-semibold text-slate-800">
-                  #{session.sessionId.toString()}
+                  #{activeSession.sessionId.toString()}
                 </p>
               </div>
               <div>
@@ -275,7 +300,7 @@ export function AdminView({
                   Max Number
                 </p>
                 <p className="text-sm font-semibold text-slate-800">
-                  {session.maxNumber}
+                  {activeSession.maxNumber}
                 </p>
               </div>
               <div>
@@ -283,7 +308,7 @@ export function AdminView({
                   Payout
                 </p>
                 <p className="text-sm font-semibold text-slate-800">
-                  {Number(formatEther(session.payout)).toFixed(3)} ETH
+                  {Number(formatEther(activeSession.payout)).toFixed(3)} ETH
                 </p>
               </div>
               <div>
@@ -293,14 +318,14 @@ export function AdminView({
                 <p className="text-sm font-semibold text-slate-800">
                   {!isDone
                     ? `Ends in ${formatTimeLeft(secondsLeft)}`
-                    : session.winningNumberSet
+                    : activeSession.winningNumberSet
                       ? "Complete"
                       : "Waiting for winner"}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-600">No sessions exist yet.</p>
+            <p className="text-sm text-slate-600">No open session right now.</p>
           )}
 
           {!session || canCreateSession ? (
@@ -417,7 +442,7 @@ export function AdminView({
             <h2 className="mb-3 text-sm font-semibold text-slate-900">
               Previous Sessions
             </h2>
-            {previousSessions.length === 0 ? (
+            {displayedPreviousSessions.length === 0 ? (
               <p className="text-sm text-slate-600">
                 No previous sessions yet.
               </p>
@@ -434,7 +459,7 @@ export function AdminView({
                     </tr>
                   </thead>
                   <tbody>
-                    {previousSessions.map((row) => (
+                    {displayedPreviousSessions.map((row) => (
                       <tr
                         key={row.sessionId.toString()}
                         className="border-b border-slate-100 last:border-b-0"
@@ -456,9 +481,12 @@ export function AdminView({
                         </td>
                         <td className="px-2 py-2">
                           {row.winningNumberSet
-                            ? row.payoutClaimed
-                              ? "Yes"
-                              : "No"
+                            ? row.winner ===
+                              "0x0000000000000000000000000000000000000000"
+                              ? "-"
+                              : row.payoutClaimed
+                                ? <Check className="w-4 h-4 text-green-500" />
+                                : "No"
                             : "Pending"}
                         </td>
                       </tr>
