@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatEther, type Client, type PublicClient } from "viem";
 import { useConnection } from "wagmi";
 import { usePrividium } from "../hooks/usePrividium";
+import { useSsoAccount } from "../hooks/useSSOAccount";
 import { formatTimeLeft } from "../utils/game";
 import type { SessionResult, SessionState } from "../utils/types";
 import { useGameContract } from "../hooks/useGameContract";
@@ -19,6 +20,8 @@ interface Props {
 
 export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const { address } = useConnection();
+  const { account } = useSsoAccount();
+  const activeAddress = account ?? address;
   const { enableWalletToken, userRoles } = usePrividium();
   const { pickNumber, claimPayout } = useGameContract(rpcClient as PublicClient, enableWalletToken);
 
@@ -70,9 +73,9 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
         maxNumber,
         drawTimestamp,
         payout,
-        winner: rawSession[4],
+        winner: rawSession[5],
         winningNumberSet,
-        payoutClaimed: rawSession[6],
+        payoutClaimed: rawSession[7],
       });
 
       const bitmap = (await gameContract.read.getTakenBitmap([
@@ -94,18 +97,18 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
       setTakenNumbers(nextTaken);
 
-      if (address) {
+      if (activeAddress) {
         let unclaimedWinningSession: SessionState | null = null;
         for (let sid = latestSessionId; sid >= 0n; sid -= 1n) {
           const raw = (await gameContract.read.sessions([sid])) as SessionResult;
-          const winner = raw[4];
+          const winner = raw[5];
           const winningNumberSetForSid = raw[6];
           const payoutClaimedForSid = raw[7];
           const isWinningSession =
             winningNumberSetForSid &&
             !payoutClaimedForSid &&
             winner.toLowerCase() !== ZERO_ADDRESS &&
-            winner.toLowerCase() === address.toLowerCase();
+            winner.toLowerCase() === activeAddress.toLowerCase();
 
           if (isWinningSession) {
             unclaimedWinningSession = {
@@ -126,12 +129,12 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
         const hasPicked = (await gameContract.read.hasPicked([
           latestSessionId,
-          address,
+          activeAddress,
         ])) as boolean;
         if (hasPicked) {
           const picked = (await gameContract.read.getPickedNumber([
             latestSessionId,
-            address,
+            activeAddress,
           ])) as number;
           setMyPickedNumber(picked);
           setSelectedNumber(picked);
@@ -153,7 +156,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [address, gameContract]);
+  }, [activeAddress, gameContract]);
 
   useEffect(() => {
     loadSession();
@@ -181,12 +184,12 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   }, [session]);
 
   const isWinner = useMemo(() => {
-    if (!session || !address || !session.winningNumberSet) return false;
+    if (!session || !activeAddress || !session.winningNumberSet) return false;
     return (
       session.winner.toLowerCase() !== ZERO_ADDRESS &&
-      session.winner.toLowerCase() === address.toLowerCase()
+      session.winner.toLowerCase() === activeAddress.toLowerCase()
     );
-  }, [address, session]);
+  }, [activeAddress, session]);
 
   const showNotWinnerMessage = useMemo(() => {
     if (!session) return false;

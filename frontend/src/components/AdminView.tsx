@@ -79,7 +79,7 @@ export function AdminView({
         maxNumber: Number(rawSession[0]),
         drawTimestamp: rawSession[2],
         payout: rawSession[3],
-        winner: rawSession[4],
+        winner: rawSession[5],
         winningNumberSet: rawSession[6],
         payoutClaimed: rawSession[7],
       });

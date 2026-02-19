@@ -80,7 +80,7 @@ export async function getPreviousSessions(
         sessionId: sid,
         winningNumber: Number(raw[1]),
         payout: displayedPayout,
-        winner: raw[4],
+        winner: raw[5],
         winningNumberSet: raw[6],
         payoutClaimed: raw[7],
       });
