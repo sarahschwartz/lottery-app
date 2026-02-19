@@ -1,7 +1,7 @@
 import { encodeFunctionData, type Abi } from "viem";
 import GAME_ABI_JSON from "./NumberGuessingGame.json";
 import type { PrividiumChain } from "prividium";
-import { sendWithPasskey } from "./sso/sendTxWithPasskey";
+// import { sendWithPasskey } from "./sso/sendTxWithPasskey";
 
 async function sendAuthorizedTx({
   functionName,
@@ -26,13 +26,14 @@ async function sendAuthorizedTx({
     functionName,
     args,
   });
-  const hash = await sendWithPasskey(
-    data,
-    rpcClient,
-    prividium.authorizeTransaction,
-    value,
-  );
-  return hash;
+  console.log("DATA", data)
+  // const hash = await sendWithPasskey(
+  //   data,
+  //   rpcClient,
+  //   prividium.authorizeTransaction,
+  //   value,
+  // );
+  // return hash;
 }
 
 export const sendPickNumberTx = async (

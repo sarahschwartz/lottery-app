@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatEther, parseEther, type Client } from "viem";
+import { formatEther, parseEther, type Client, type PublicClient } from "viem";
 import {
   formatTimeLeft,
   getPreviousSessions,
@@ -13,7 +13,8 @@ import type {
   SessionState,
 } from "../utils/types";
 import { usePrividium } from "../hooks/usePrividium";
-import { sendCreateSessionTx, sendSetWinningNumberTx } from "../utils/txns";
+import { sendSetWinningNumberTx } from "../utils/txns";
+import { useGameContract } from "../hooks/useGameContract";
 
 const DEFAULT_SESSION_PAYOUT_ETH = "0.1";
 
@@ -25,7 +26,7 @@ interface Props {
 }
 
 export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
-  const { prividium } = usePrividium();
+  const { prividium, enableWalletToken } = usePrividium();
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [previousSessions, setPreviousSessions] = useState<
@@ -43,6 +44,8 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
   const [txError, setTxError] = useState<string | null>(null);
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const { createSession } = useGameContract(rpcClient as PublicClient, enableWalletToken);
 
   const loadSession = useCallback(async () => {
     setIsLoading(true);
@@ -161,7 +164,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     }
   };
 
-  const createSession = async () => {
+  const createNewSession = async () => {
     if (!canCreateSession) return;
 
     const maxNumber = Number(maxNumberInput);
@@ -195,13 +198,14 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     setTxSuccess(null);
 
     try {
-      await sendCreateSessionTx(
-        maxNumber,
-        minutes,
-        payout,
-        prividium,
-        rpcClient,
-      );
+      // await sendCreateSessionTx(
+      //   maxNumber,
+      //   minutes,
+      //   payout,
+      //   prividium,
+      //   rpcClient,
+      // );
+      await createSession(maxNumber, minutes);
       setTxSuccess("New session created successfully.");
       await loadSession();
     } catch (submitError) {
@@ -330,7 +334,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
               </div>
               <button
                 type="button"
-                onClick={() => void createSession()}
+                onClick={createNewSession}
                 disabled={isSubmitting}
                 className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >

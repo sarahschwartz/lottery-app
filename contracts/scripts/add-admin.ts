@@ -1,20 +1,13 @@
 import { type Abi, isAddress } from 'viem';
-import { setupGame } from './setup.js';
+import { canEditAdmins, setupGame } from './setup.js';
 
-const newAdminAddress = '0x916673552256261b8bf4460b4a253ac56f3fc6a4'
+const newAdminAddress = '0x8e291c58adaef3eddc101f269d05383359aacd37'
 
 if(!isAddress(newAdminAddress)) throw new Error ("newAdminAddress is not properly set");
 
 const { gameContract, publicClient, senderClient, GAME_CONTRACT_ADDRESS } = await setupGame();
 
-const admins = await publicClient.readContract({
-      address: GAME_CONTRACT_ADDRESS,
-  abi: gameContract.abi as Abi,
-  functionName: 'admins',
-  args: [senderClient.account.address]
-})
-
-console.log("Sender is authorized to add new admin:", admins)
+await canEditAdmins(publicClient, gameContract.abi as Abi, senderClient.account.address)
 
 const tx = await senderClient.writeContract({
   address: GAME_CONTRACT_ADDRESS,

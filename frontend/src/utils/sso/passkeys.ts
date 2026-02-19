@@ -2,10 +2,21 @@ import { startAuthentication } from '@simplewebauthn/browser';
 import { type Address, type Hex, type PublicClient, toHex } from 'viem';
 import { generatePasskeyAuthenticationOptions } from 'zksync-sso/client/passkey';
 import { registerNewPasskey } from 'zksync-sso/client/passkey';
-import { base64UrlToUint8Array, getPasskeySignatureFromPublicKeyBytes } from 'zksync-sso/utils';
+import { getPasskeySignatureFromPublicKeyBytes } from 'zksync-sso/utils';
 
 import { RP_ID, STORAGE_KEY_ACCOUNT, STORAGE_KEY_PASSKEY, WEBAUTHN_VALIDATOR_ABI, ssoContracts } from './constants';
 import type { PasskeyCredential } from '../types';
+
+const base64UrlToBytes = (input: string): Uint8Array => {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
 
 export function loadExistingPasskey() {
   const savedPasskey = localStorage.getItem(STORAGE_KEY_PASSKEY);
@@ -55,17 +66,16 @@ export async function selectExistingPasskey(
   }
   const options = await generatePasskeyAuthenticationOptions({});
   const authenticationResponse = await startAuthentication({ optionsJSON: options });
-  const credentialIdHex = toHex(base64UrlToUint8Array(authenticationResponse.id));
+  const credentialIdHex = toHex(base64UrlToBytes(authenticationResponse.id));
+  const domain = window.location.origin;
   const { savedAccount } = loadExistingPasskey();
-  console.log("savedAccount", savedAccount)
   const from =
     fromAddress ?? savedAccount ?? ('0x0000000000000000000000000000000000000001' as Address);
-    console.log("from", from)
   const authClient = client;
 
-  console.log('[passkeys] getAccountList', {
+  console.debug('[passkeys] getAccountList', {
     contract: ssoContracts.webauthnValidator,
-    domain: RP_ID,
+    domain,
     credentialId: credentialIdHex,
     from
   });
@@ -74,11 +84,9 @@ export async function selectExistingPasskey(
     address: ssoContracts.webauthnValidator,
     abi: WEBAUTHN_VALIDATOR_ABI,
     functionName: 'getAccountList',
-    args: [RP_ID, credentialIdHex],
+    args: [domain, credentialIdHex],
     account: from
   })) as Address[];
-
-  console.log("accounts:", accounts)
 
   if (!accounts.length) {
     throw new Error('No account found for selected passkey');
@@ -89,7 +97,7 @@ export async function selectExistingPasskey(
     address: ssoContracts.webauthnValidator,
     abi: WEBAUTHN_VALIDATOR_ABI,
     functionName: 'getAccountKey',
-    args: [RP_ID, credentialIdHex, accountAddress],
+    args: [domain, credentialIdHex, accountAddress],
     account: from
   })) as [`0x${string}`, `0x${string}`];
 

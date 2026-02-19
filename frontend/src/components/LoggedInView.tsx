@@ -9,6 +9,7 @@ import { PlayerView } from "./PlayerView";
 import { PasskeyLogin } from "./PasskeyLogin";
 import { Header } from "./Header";
 import { useSsoAccount } from "../hooks/useSSOAccount";
+import { handleResetPasskey } from "../utils/sso/passkeys";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
@@ -92,6 +93,9 @@ export function LoggedInView() {
         <>
           {address && gameContract && rpcClient ? (
             <>
+            <button onClick={handleResetPasskey}>Log Out</button>
+            <div>Your Address: {address}</div>
+            <div>Your Balance: (todo)</div>
               {isAdmin ? (
                 <AdminView
                   gameContract={gameContract}
