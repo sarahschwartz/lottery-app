@@ -67,14 +67,14 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
-            <NavBar accountBalance={accountBalance} />
+      <NavBar accountBalance={accountBalance} />
 
-      <div className="grow container mx-auto px-4 py-12 max-w-7xl">
-        <div className="min-h-[70vh] flex items-center justify-center p-6">
+      <div className="grow container mx-auto px-4 py-2 md:py-4 max-w-7xl">
+        <div className="min-h-[72vh] flex items-center justify-center p-2 md:p-6">
           <div
-            className={`w-full enterprise-card overflow-hidden' ${isAuthenticated ? "max-w-4xl" : "max-w-md"}`}
+            className={`w-full enterprise-card overflow-hidden ${isAuthenticated ? "max-w-5xl" : "max-w-md"}`}
           >
-            <div className="p-8 md:p-10">
+            <div className="p-6 md:p-8 lg:p-10">
               
               {!isAuthenticated && (
                 <Header isAuthenticated={false} />
@@ -97,7 +97,7 @@ function App() {
                 <div className="space-y-6">
                   <button
                     onClick={login}
-                    className="enterprise-button-primary w-full py-4 text-base"
+                    className="enterprise-button-primary w-full py-4 text-base tracking-wide"
                   >
                     Authenticate via Prividium
                   </button>

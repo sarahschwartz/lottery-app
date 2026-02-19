@@ -45,15 +45,20 @@ export function NavBar({ accountBalance }: Props) {
   return (
     <nav className="floating-navbar">
       <div className="floating-navbar-inner">
-        <div className="flex items-center gap-6 min-w-50 max-w-3xl w-full justify-between">
-          {ssoAccount && accountBalance ? (
+        <div className="flex items-center gap-4 w-full justify-between">
+          {ssoAccount && accountBalance !== null ? (
             <>
-              <div>Balance: {Number(formatEther(accountBalance)).toFixed(4)} ETH</div>
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">
+                <span className="text-slate-500">Balance</span>
+                <span className="font-semibold text-slate-900">
+                  {Number(formatEther(accountBalance)).toFixed(4)} ETH
+                </span>
+              </div>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-6 py-2.5 rounded-full transition-all flex items-center gap-3 shadow-sm text-sm font-medium"
+                  className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 md:px-6 py-2.5 rounded-full transition-all flex items-center gap-2.5 shadow-sm text-sm font-medium"
                 >
                   <Wallet className="w-4 h-4 text-slate-500" />
                   <span className="font-mono">
@@ -67,11 +72,11 @@ export function NavBar({ accountBalance }: Props) {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-2xl p-2 z-50">
+                  <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-50">
                     <button
                       type="button"
                       onClick={copyAddress}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors text-left"
                     >
                       {copied ? (
                         <Check className="w-4 h-4 text-green-500" />
@@ -83,7 +88,7 @@ export function NavBar({ accountBalance }: Props) {
                     <button
                       type="button"
                       onClick={logout}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors text-left"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Log Out</span>
@@ -93,7 +98,7 @@ export function NavBar({ accountBalance }: Props) {
               </div>
             </>
           ) : canShowSessionControls ? (
-            <div className="text-xs font-semibold text-slate-400">
+            <div className="text-xs font-semibold text-slate-500 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
               SSO account not linked
             </div>
           ) : null}

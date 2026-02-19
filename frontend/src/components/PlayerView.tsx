@@ -267,15 +267,15 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
   return (
     <>
-      <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-xl shadow-slate-200/60 sm:p-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Number Guessing Game
           </h1>
           <button
             type="button"
             onClick={() => void loadSession()}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
           >
             Refresh
           </button>
@@ -328,7 +328,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
             </div>
 
             {showClaimRewardFirst ? (
-              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4">
                 <p className="text-sm text-emerald-700">
                   {winnerCongrats(session.sessionId.toString())}
                 </p>
@@ -340,7 +340,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                     type="button"
                     onClick={() => void claimReward()}
                     disabled={isSubmitting}
-                    className="cursor-pointer rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    className="cursor-pointer rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
                   >
                     {isSubmitting ? "Submitting..." : "Claim reward"}
                   </button>
@@ -395,11 +395,11 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
                 {!myPickedNumber && !isSessionClosed && (
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      disabled={!selectedNumber || isSubmitting}
-                      onClick={selectNumber}
-                      className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      <button
+                        type="button"
+                        disabled={!selectedNumber || isSubmitting}
+                        onClick={selectNumber}
+                        className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                       {isSubmitting ? "Submitting..." : "Submit pick"}
                     </button>
@@ -419,7 +419,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                   type="button"
                   onClick={() => void claimReward()}
                   disabled={isSubmitting}
-                  className="cursor-pointer rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                  className="cursor-pointer rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
                 >
                   {isSubmitting ? "Submitting..." : "Claim reward"}
                 </button>
@@ -427,13 +427,13 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
             )}
 
             {showNotWinnerMessage && (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                 Better luck next time.
               </p>
             )}
 
             {pickedSuccess && (
-              <p className="rounded-lg border border-green-200 bg-greeen-50 p-3 text-sm text-green-700">
+              <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700">
                 {selectedNumber} picked!
               </p>
             )}

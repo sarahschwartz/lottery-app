@@ -89,7 +89,7 @@ export function LoggedInView({
   }, [address, gameContract, isAuthenticated]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
+    <div className="px-2 py-2 text-slate-900">
       {isAuthenticated && (
         <>
           {address && gameContract && rpcClient ? (

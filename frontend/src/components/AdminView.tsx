@@ -234,13 +234,15 @@ export function AdminView({
     payoutExceedsBalance;
 
   return (
-    <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-xl shadow-slate-200/60 sm:p-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Admin Panel</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Admin Panel
+        </h1>
         <button
           type="button"
           onClick={() => void loadSession()}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+          className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
         >
           Refresh
         </button>
@@ -302,7 +304,7 @@ export function AdminView({
           )}
 
           {!session || canCreateSession ? (
-            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <h2 className="text-sm font-semibold text-slate-900">
                 Create New Session
               </h2>
@@ -317,7 +319,7 @@ export function AdminView({
                     step={1}
                     value={maxNumberInput}
                     onChange={(event) => setMaxNumberInput(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500"
                   />
                 </label>
                 <label className="space-y-1">
@@ -330,7 +332,7 @@ export function AdminView({
                     step={1}
                     value={minutesInput}
                     onChange={(event) => setMinutesInput(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500"
                   />
                 </label>
                 <label className="space-y-1">
@@ -341,7 +343,7 @@ export function AdminView({
                     type="text"
                     value={payoutInput}
                     onChange={(event) => setPayoutInput(event.target.value)}
-                    className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 ${
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500 ${
                       payoutExceedsBalance
                         ? "border-rose-300 bg-rose-50"
                         : "border-slate-300"
@@ -365,7 +367,7 @@ export function AdminView({
                 type="button"
                 onClick={createNewSession}
                 disabled={isCreateDisabled}
-                className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {isSubmitting ? "Submitting..." : "Create session"}
               </button>
@@ -373,7 +375,7 @@ export function AdminView({
           ) : null}
 
           {session && canChooseWinner ? (
-            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <h2 className="text-sm font-semibold text-slate-900">
                 Choose Winner
               </h2>
@@ -385,7 +387,7 @@ export function AdminView({
                 type="button"
                 onClick={() => void chooseWinner()}
                 disabled={isSubmitting}
-                className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {isSubmitting ? "Submitting..." : "Pick random winner"}
               </button>
