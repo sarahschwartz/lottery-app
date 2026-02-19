@@ -17,6 +17,51 @@ import { ssoContracts } from './constants';
 import type { PasskeyCredential } from '../types';
 import { prividiumChain } from '../wagmi';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function getRpcErrorDetails(error: unknown): string {
+  if (!error || typeof error !== 'object') return getErrorMessage(error);
+
+  const record = error as Record<string, unknown>;
+  const direct =
+    (typeof record.shortMessage === 'string' && record.shortMessage) ||
+    (typeof record.message === 'string' && record.message);
+  const cause = record.cause as Record<string, unknown> | undefined;
+  const causeMsg =
+    cause &&
+    ((typeof cause.shortMessage === 'string' && cause.shortMessage) ||
+      (typeof cause.message === 'string' && cause.message));
+  const nested = record.details;
+  const nestedMsg =
+    typeof nested === 'string' ? nested : nested ? getErrorMessage(nested) : '';
+
+  const parts = [direct, causeMsg, nestedMsg].filter(
+    (part): part is string => Boolean(part && part.trim()),
+  );
+  const rawCode =
+    (typeof record.code === 'number' || typeof record.code === 'string') && record.code !== null
+      ? `code=${String(record.code)}`
+      : '';
+  const rawData =
+    typeof record.data === 'string'
+      ? `data=${record.data}`
+      : record.data
+        ? `data=${getErrorMessage(record.data)}`
+        : '';
+  if (parts.length > 0) {
+    return [parts.join(' | '), rawCode, rawData].filter(Boolean).join(' | ');
+  }
+  return getErrorMessage(error);
+}
+
 // NOTE: this method will be replaced with a much simpler implementation
 // once the zksync-sso SDK is finalized for 4337 support
 export async function sendTxWithPasskey(
@@ -57,6 +102,22 @@ export async function sendTxWithPasskey(
       );
     }
   }
+
+  // Surface contract-level reverts early (e.g. "session closed", "already picked")
+  // instead of generic bundler errors.
+  for (const call of txData) {
+    try {
+      await readClient.call({
+        account: accountAddress,
+        to: call.to,
+        data: call.data,
+        value: call.value,
+      });
+    } catch (error) {
+      throw new Error(`Transaction would revert: ${getRpcErrorDetails(error)}`);
+    }
+  }
+
   // Create UserOperation for ETH transfer
   // Use ERC-7579 execute(bytes32 mode, bytes executionData) format
   const modeCode = pad('0x01', { dir: 'right', size: 32 }); // simple batch execute
@@ -239,11 +300,25 @@ export async function sendTxWithPasskey(
   type RpcRequestArgs = { method: string; params?: unknown[] };
   const rpcRequest = readClient.request as unknown as (args: RpcRequestArgs) => Promise<unknown>;
 
+  try {
+    await rpcRequest({
+      method: 'eth_estimateUserOperationGas',
+      params: [userOpForBundler, ssoContracts.entryPoint],
+    });
+  } catch (error) {
+    throw new Error(`Bundler gas estimation failed: ${getRpcErrorDetails(error)}`);
+  }
+
   // Submit to bundler (v0.8 RPC format)
-  const userOpHashFromBundler = (await rpcRequest({
-    method: 'eth_sendUserOperation',
-    params: [userOpForBundler, ssoContracts.entryPoint]
-  })) as `0x${string}`;
+  let userOpHashFromBundler: `0x${string}`;
+  try {
+    userOpHashFromBundler = (await rpcRequest({
+      method: 'eth_sendUserOperation',
+      params: [userOpForBundler, ssoContracts.entryPoint]
+    })) as `0x${string}`;
+  } catch (error) {
+    throw new Error(`Bundler operation failed: ${getRpcErrorDetails(error)}`);
+  }
   console.log(`UserOperation submitted: ${userOpHashFromBundler}`);
   console.log('⏳ Waiting for confirmation...');
 

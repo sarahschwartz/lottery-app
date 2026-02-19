@@ -19,7 +19,7 @@ interface Props {
 
 export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const { address } = useConnection();
-  const { enableWalletToken } = usePrividium();
+  const { enableWalletToken, userRoles } = usePrividium();
   const { pickNumber, claimPayout } = useGameContract(rpcClient as PublicClient, enableWalletToken);
 
   const [session, setSession] = useState<SessionState | null>(null);
@@ -202,8 +202,23 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     return claimSession.sessionId !== session.sessionId;
   }, [claimSession, session]);
 
+  const hasUserRole = useMemo(() => {
+    return userRoles.some((role) => {
+      if (typeof role === "string") return role === "user";
+      if (role && typeof role === "object" && "roleName" in role) {
+        const roleName = (role as { roleName?: unknown }).roleName;
+        return typeof roleName === "string" && roleName === "user";
+      }
+      return false;
+    });
+  }, [userRoles]);
+
   const selectNumber = async () => {
     if (!session || !selectedNumber || !gameContract || !rpcClient) return;
+    if (!hasUserRole) {
+      setTxError('This account is missing the required "user" role.');
+      return;
+    }
 
     setIsSubmitting(true);
     setTxError(null);
