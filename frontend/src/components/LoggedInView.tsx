@@ -1,4 +1,4 @@
-import { getContract, isAddress, type Address } from "viem";
+import { formatEther, getContract, isAddress, type Address } from "viem";
 import GAME_ABI_JSON from "../utils/NumberGuessingGame.json";
 import { prividiumChain } from "../utils/wagmi";
 import { createPrividiumClient } from "prividium";
@@ -17,6 +17,7 @@ const GAME_CONTRACT_ADDRESS = import.meta.env
 export function LoggedInView() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [chainNowSec, setChainNowSec] = useState<number | null>(null);
+  const [accountBalance, setAccountBalance] = useState<bigint | null>(null);
   const [completedAccountAddress, setCompletedAccountAddress] =
     useState<Address | null>(null);
   const { account } = useSsoAccount();
@@ -71,17 +72,45 @@ export function LoggedInView() {
   }, [rpcClient]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const syncBalance = async () => {
+      if (!rpcClient || !address) {
+        if (isMounted) setAccountBalance(null);
+        return;
+      }
+
+      try {
+        const balance = await rpcClient.getBalance({ address });
+        if (isMounted) setAccountBalance(balance);
+      } catch (err) {
+        console.error("Failed to load account balance:", err);
+      }
+    };
+
+    void syncBalance();
+    const interval = setInterval(() => void syncBalance(), 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [address, rpcClient]);
+
+  useEffect(() => {
     async function getContractAdmin() {
       if (!isAuthenticated || !gameContract) {
         console.log("not authenticated or no contract");
+        setIsAdmin(false);
         return;
       }
       if (!address || !isAddress(address)) {
         console.log("missing wallet address");
+        setIsAdmin(false);
         return;
       }
       const admin = (await gameContract.read.admins([address]));
-      if (admin === true) setIsAdmin(true);
+      setIsAdmin(admin === true);
     }
 
     getContractAdmin();
@@ -95,12 +124,18 @@ export function LoggedInView() {
             <>
             <button onClick={handleResetPasskey}>Log Out</button>
             <div>Your Address: {address}</div>
-            <div>Your Balance: (todo)</div>
+            <div>
+              Your Balance:{" "}
+              {accountBalance === null
+                ? "Loading..."
+                : `${Number(formatEther(accountBalance)).toFixed(4)} ETH`}
+            </div>
               {isAdmin ? (
                 <AdminView
                   gameContract={gameContract}
                   rpcClient={rpcClient}
                   chainNowSec={chainNowSec}
+                  accountBalance={accountBalance}
                 />
               ) : (
                 <PlayerView

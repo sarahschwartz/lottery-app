@@ -13,7 +13,6 @@ import type {
   SessionState,
 } from "../utils/types";
 import { usePrividium } from "../hooks/usePrividium";
-import { sendSetWinningNumberTx } from "../utils/txns";
 import { useGameContract } from "../hooks/useGameContract";
 
 const DEFAULT_SESSION_PAYOUT_ETH = "0.1";
@@ -23,10 +22,16 @@ interface Props {
   gameContract: any;
   rpcClient: Client;
   chainNowSec: number | null;
+  accountBalance: bigint | null;
 }
 
-export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
-  const { prividium, enableWalletToken } = usePrividium();
+export function AdminView({
+  gameContract,
+  rpcClient,
+  chainNowSec,
+  accountBalance,
+}: Props) {
+  const { enableWalletToken } = usePrividium();
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [previousSessions, setPreviousSessions] = useState<
@@ -45,7 +50,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const { createSession } = useGameContract(rpcClient as PublicClient, enableWalletToken);
+  const { createSession, setWinningNumber } = useGameContract(rpcClient as PublicClient, enableWalletToken);
 
   const loadSession = useCallback(async () => {
     setIsLoading(true);
@@ -123,6 +128,19 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     return isDone && session.winningNumberSet;
   }, [isDone, session]);
 
+  const parsedPayout = useMemo(() => {
+    try {
+      return parseEther(payoutInput);
+    } catch {
+      return null;
+    }
+  }, [payoutInput]);
+
+  const payoutExceedsBalance = useMemo(() => {
+    if (parsedPayout === null || accountBalance === null) return false;
+    return parsedPayout > accountBalance;
+  }, [accountBalance, parsedPayout]);
+
   const chooseWinner = async () => {
     if (!session || !canChooseWinner) return;
 
@@ -145,12 +163,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
         return;
       }
 
-      await sendSetWinningNumberTx(
-        session.sessionId,
-        winningNumber,
-        prividium,
-        rpcClient,
-      );
+      await setWinningNumber(session.sessionId, winningNumber)
       setTxSuccess(`Winning number was set successfully: ${winningNumber}.`);
       await loadSession();
     } catch (submitError) {
@@ -180,16 +193,18 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
       return;
     }
 
-    let payout: bigint;
-    try {
-      payout = parseEther(payoutInput);
-    } catch {
+    if (parsedPayout === null) {
       setTxError("Payout must be a valid ETH amount.");
       return;
     }
 
+    const payout = parsedPayout;
     if (payout <= 0n) {
       setTxError("Payout must be greater than 0.");
+      return;
+    }
+    if (accountBalance !== null && payout > accountBalance) {
+      setTxError("Payout exceeds your available balance.");
       return;
     }
 
@@ -198,14 +213,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     setTxSuccess(null);
 
     try {
-      // await sendCreateSessionTx(
-      //   maxNumber,
-      //   minutes,
-      //   payout,
-      //   prividium,
-      //   rpcClient,
-      // );
-      await createSession(maxNumber, minutes);
+      await createSession(maxNumber, minutes, payout);
       setTxSuccess("New session created successfully.");
       await loadSession();
     } catch (submitError) {
@@ -218,6 +226,12 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
       setIsSubmitting(false);
     }
   };
+
+  const isCreateDisabled =
+    isSubmitting ||
+    parsedPayout === null ||
+    parsedPayout <= 0n ||
+    payoutExceedsBalance;
 
   return (
     <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -327,15 +341,30 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                     type="text"
                     value={payoutInput}
                     onChange={(event) => setPayoutInput(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                    className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 ${
+                      payoutExceedsBalance
+                        ? "border-rose-300 bg-rose-50"
+                        : "border-slate-300"
+                    }`}
                     placeholder="0.1"
                   />
+                  <p className="text-xs text-slate-500">
+                    Available:{" "}
+                    {accountBalance === null
+                      ? "Loading..."
+                      : `${Number(formatEther(accountBalance)).toFixed(4)} ETH`}
+                  </p>
+                  {payoutExceedsBalance && (
+                    <p className="text-xs text-rose-600">
+                      Payout exceeds your available balance.
+                    </p>
+                  )}
                 </label>
               </div>
               <button
                 type="button"
                 onClick={createNewSession}
-                disabled={isSubmitting}
+                disabled={isCreateDisabled}
                 className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {isSubmitting ? "Submitting..." : "Create session"}

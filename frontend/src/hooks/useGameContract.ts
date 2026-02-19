@@ -1,6 +1,13 @@
-import { type Abi, type PublicClient, encodeFunctionData, getContract, pad, toHex } from 'viem';
-import { loadExistingPasskey } from '../utils/sso/passkeys';
-import { sendTxWithPasskey } from '../utils/sso/sendTxWithPasskey';
+import {
+  type Abi,
+  type PublicClient,
+  encodeFunctionData,
+  getContract,
+  pad,
+  toHex,
+} from "viem";
+import { loadExistingPasskey } from "../utils/sso/passkeys";
+import { sendTxWithPasskey } from "../utils/sso/sendTxWithPasskey";
 import GAME_ABI_JSON from "../utils/NumberGuessingGame.json";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
@@ -13,12 +20,12 @@ export function useGameContract(
     contractAddress: `0x${string}`;
     nonce: number;
     calldata: `0x${string}`;
-  }) => Promise<{ message: string; activeUntil: string }>
+  }) => Promise<{ message: string; activeUntil: string }>,
 ) {
   const contract = getContract({
     address: GAME_CONTRACT_ADDRESS,
     abi: GAME_ABI_JSON.abi as Abi,
-    client: rpcClient
+    client: rpcClient,
   });
 
   // Internal helper for defensive checks (matching React)
@@ -29,10 +36,15 @@ export function useGameContract(
     const maxPriorityFeePerGas = 5000000000n;
     const preVerificationGas = 200000n;
 
-    const accountGasLimits = pad(toHex((verificationGasLimit << 128n) | callGasLimit), {
-      size: 32
+    const accountGasLimits = pad(
+      toHex((verificationGasLimit << 128n) | callGasLimit),
+      {
+        size: 32,
+      },
+    );
+    const gasFees = pad(toHex((maxPriorityFeePerGas << 128n) | maxFeePerGas), {
+      size: 32,
     });
-    const gasFees = pad(toHex((maxPriorityFeePerGas << 128n) | maxFeePerGas), { size: 32 });
 
     return {
       gasFees,
@@ -41,22 +53,22 @@ export function useGameContract(
       verificationGasLimit,
       preVerificationGas,
       maxFeePerGas,
-      maxPriorityFeePerGas
+      maxPriorityFeePerGas,
     };
   };
 
   const sendWithPasskey = async (data: `0x${string}`, value?: bigint) => {
     const { savedPasskey, savedAccount } = loadExistingPasskey();
     if (!savedPasskey || !savedAccount) {
-      throw new Error('No SSO account found. Create and link a passkey first.');
+      throw new Error("No SSO account found. Create and link a passkey first.");
     }
 
     const txData = [
       {
         to: GAME_CONTRACT_ADDRESS,
         value: value ?? 0n,
-        data
-      }
+        data,
+      },
     ];
 
     const gasOptions = buildGasOptions();
@@ -66,29 +78,46 @@ export function useGameContract(
       txData,
       gasOptions,
       rpcClient,
-      enableWalletToken
+      enableWalletToken,
     );
   };
-    // | "pickNumber"
-    // | "createSession"
-    // | "setWinningNumber"
-    // | "claimPayout";
 
-  // Write functions
-  const createSession = async (maxNumber: number, minutes: number) => {
+  const createSession = async (
+    maxNumber: number,
+    minutes: number,
+    payout: bigint,
+  ) => {
     const data = encodeFunctionData({
       abi: GAME_ABI_JSON.abi as Abi,
-      functionName: 'createSession',
-      args: [maxNumber, minutes]
+      functionName: "createSession",
+      args: [maxNumber, minutes],
     });
-    return await sendWithPasskey(data);
+    return await sendWithPasskey(data, payout);
   };
 
   const pickNumber = async (sessionId: bigint, selectedNumber: number) => {
     const data = encodeFunctionData({
       abi: GAME_ABI_JSON.abi as Abi,
-      functionName: 'pickNumber',
-      args: [sessionId, selectedNumber]
+      functionName: "pickNumber",
+      args: [sessionId, selectedNumber],
+    });
+    return await sendWithPasskey(data);
+  };
+
+  const setWinningNumber = async (sessionId: bigint, winningNumber: number) => {
+    const data = encodeFunctionData({
+      abi: GAME_ABI_JSON.abi as Abi,
+      functionName: "setWinningNumber",
+      args: [sessionId, winningNumber],
+    });
+    return await sendWithPasskey(data);
+  };
+
+  const claimPayout = async (sessionId: bigint) => {
+    const data = encodeFunctionData({
+      abi: GAME_ABI_JSON.abi as Abi,
+      functionName: "claimPayout",
+      args: [sessionId],
     });
     return await sendWithPasskey(data);
   };
@@ -96,6 +125,8 @@ export function useGameContract(
   return {
     contract,
     createSession,
-    pickNumber
+    pickNumber,
+    setWinningNumber,
+    claimPayout,
   };
 }

@@ -6,7 +6,7 @@ import {
   saveAccountAddress,
   selectExistingPasskey,
 } from "../utils/sso/passkeys";
-import { DEPLOY_ACCOUNT_ENDPOINT, RP_ID } from "../utils/sso/constants";
+import { DEPLOY_ACCOUNT_ENDPOINT } from "../utils/sso/constants";
 import {
   createPublicClient,
   type Address,
@@ -88,7 +88,7 @@ export function PasskeyLogin({ setCompletedAccountAddress }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          originDomain: RP_ID,
+          originDomain: window.location.origin,
           credentialId: creds.credentialId,
           credentialPublicKey: creds.credentialPublicKey,
         }),

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatEther, type Client } from "viem";
+import { formatEther, type Client, type PublicClient } from "viem";
 import { useConnection } from "wagmi";
 import { usePrividium } from "../hooks/usePrividium";
 import { formatTimeLeft } from "../utils/game";
 import type { SessionResult, SessionState } from "../utils/types";
-import { sendClaimPayoutTx, sendPickNumberTx } from "../utils/txns";
+import { useGameContract } from "../hooks/useGameContract";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
@@ -19,7 +19,8 @@ interface Props {
 
 export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const { address } = useConnection();
-  const { prividium } = usePrividium();
+  const { enableWalletToken } = usePrividium();
+  const { pickNumber, claimPayout } = useGameContract(rpcClient as PublicClient, enableWalletToken);
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
@@ -201,19 +202,14 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     return claimSession.sessionId !== session.sessionId;
   }, [claimSession, session]);
 
-  const pickNumber = async () => {
+  const selectNumber = async () => {
     if (!session || !selectedNumber || !gameContract || !rpcClient) return;
 
     setIsSubmitting(true);
     setTxError(null);
     try {
       console.log("going to pick: ", selectedNumber);
-      await sendPickNumberTx(
-        session.sessionId,
-        selectedNumber,
-        prividium,
-        rpcClient,
-      );
+      await pickNumber(session.sessionId, selectedNumber);
 
       setTimeout(async () => {
         await loadSession();
@@ -236,7 +232,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     setIsSubmitting(true);
     setTxError(null);
     try {
-      await sendClaimPayoutTx(claimSession.sessionId, prividium, rpcClient);
+      await claimPayout(claimSession.sessionId);
       await loadSession();
     } catch (submitError) {
       const message =
@@ -384,7 +380,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                     <button
                       type="button"
                       disabled={!selectedNumber || isSubmitting}
-                      onClick={() => void pickNumber()}
+                      onClick={selectNumber}
                       className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                       {isSubmitting ? "Submitting..." : "Submit pick"}

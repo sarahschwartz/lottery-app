@@ -1,7 +1,7 @@
 import { type Abi, isAddress } from 'viem';
 import { canEditAdmins, setupGame } from './setup.js';
 
-const newAdminAddress = '0x8e291c58adaef3eddc101f269d05383359aacd37'
+const newAdminAddress = '0x4357568d9f710cc9edb3b240633449a394481a79'
 
 if(!isAddress(newAdminAddress)) throw new Error ("newAdminAddress is not properly set");
 

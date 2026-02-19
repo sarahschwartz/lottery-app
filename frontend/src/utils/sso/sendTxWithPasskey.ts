@@ -47,6 +47,16 @@ export async function sendTxWithPasskey(
   if (!readClient) {
     throw new Error('Authenticated RPC client required to send transactions.');
   }
+
+  const totalValue = txData.reduce((sum, call) => sum + call.value, 0n);
+  if (totalValue > 0n) {
+    const balance = await readClient.getBalance({ address: accountAddress });
+    if (balance < totalValue) {
+      throw new Error(
+        `Insufficient account balance: need ${totalValue.toString()} wei, have ${balance.toString()} wei.`
+      );
+    }
+  }
   // Create UserOperation for ETH transfer
   // Use ERC-7579 execute(bytes32 mode, bytes executionData) format
   const modeCode = pad('0x01', { dir: 'right', size: 32 }); // simple batch execute
@@ -263,5 +273,17 @@ export async function sendTxWithPasskey(
     console.log('✅ Transfer successful!');
     return receipt.receipt.transactionHash;
   }
-  throw new Error('Transaction failed');
+
+  const failureDetails = receipt as unknown as Record<string, unknown>;
+  const possibleReason =
+    (typeof failureDetails.reason === 'string' && failureDetails.reason) ||
+    (typeof failureDetails.revertReason === 'string' && failureDetails.revertReason) ||
+    (typeof failureDetails.error === 'string' && failureDetails.error) ||
+    (typeof failureDetails.message === 'string' && failureDetails.message);
+
+  if (possibleReason) {
+    throw new Error(`Transaction failed: ${possibleReason}`);
+  }
+
+  throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
 }
