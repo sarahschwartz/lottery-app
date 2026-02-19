@@ -1,12 +1,14 @@
-import { getContract, isAddress } from "viem";
+import { getContract, isAddress, type Address } from "viem";
 import GAME_ABI_JSON from "../utils/NumberGuessingGame.json";
 import { prividiumChain } from "../utils/wagmi";
 import { createPrividiumClient } from "prividium";
 import { useEffect, useMemo, useState } from "react";
-import { usePrividium } from "../utils/usePrividium";
-import { useConnection } from "wagmi";
+import { usePrividium } from "../hooks/usePrividium";
 import { AdminView } from "./AdminView";
 import { PlayerView } from "./PlayerView";
+import { PasskeyLogin } from "./PasskeyLogin";
+import { Header } from "./Header";
+import { useSsoAccount } from "../hooks/useSSOAccount";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
@@ -14,11 +16,16 @@ const GAME_CONTRACT_ADDRESS = import.meta.env
 export function LoggedInView() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [chainNowSec, setChainNowSec] = useState<number | null>(null);
+  const [completedAccountAddress, setCompletedAccountAddress] =
+    useState<Address | null>(null);
+  const { account } = useSsoAccount();
+
+  const address = completedAccountAddress || account || undefined;
+
   const { prividium, isAuthenticated } = usePrividium();
-  const { address } = useConnection();
 
   const rpcClient = useMemo(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && address) {
       return createPrividiumClient({
         chain: prividiumChain,
         transport: prividium.transport,
@@ -64,7 +71,7 @@ export function LoggedInView() {
 
   useEffect(() => {
     async function getContractAdmin() {
-      if(!isAuthenticated || !gameContract){
+      if (!isAuthenticated || !gameContract) {
         console.log("not authenticated or no contract");
         return;
       }
@@ -72,12 +79,8 @@ export function LoggedInView() {
         console.log("missing wallet address");
         return;
       }
-      const admin = (await gameContract.read.admin()) as string;
-      if (!admin || !isAddress(admin)) {
-        console.log("error getting contract admin");
-        return;
-      }
-      if (admin.toLowerCase() === address?.toLowerCase()) setIsAdmin(true);
+      const admin = (await gameContract.read.admins([address]));
+      if (admin === true) setIsAdmin(true);
     }
 
     getContractAdmin();
@@ -85,20 +88,31 @@ export function LoggedInView() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
-      {isAuthenticated && gameContract && rpcClient && (
+      {isAuthenticated && (
         <>
-          {isAdmin ? (
-            <AdminView
-              gameContract={gameContract}
-              rpcClient={rpcClient}
-              chainNowSec={chainNowSec}
-            />
+          {address && gameContract && rpcClient ? (
+            <>
+              {isAdmin ? (
+                <AdminView
+                  gameContract={gameContract}
+                  rpcClient={rpcClient}
+                  chainNowSec={chainNowSec}
+                />
+              ) : (
+                <PlayerView
+                  gameContract={gameContract}
+                  rpcClient={rpcClient}
+                  chainNowSec={chainNowSec}
+                />
+              )}
+            </>
           ) : (
-            <PlayerView
-              gameContract={gameContract}
-              rpcClient={rpcClient}
-              chainNowSec={chainNowSec}
-            />
+            <>
+              <Header isAuthenticated={true} />
+              <PasskeyLogin
+                setCompletedAccountAddress={setCompletedAccountAddress}
+              />
+            </>
           )}
         </>
       )}

@@ -78,7 +78,7 @@ describe("NumberGuessingGame", async function () {
 
     const session = await game.read.sessions([0n]);
     assert.equal(session[3], payout);
-    assert.equal(session[6], true);
+    assert.equal(session[7], true);
 
     await viem.assertions.revertWith(
       game.write.claimPayout([0n], { account: player2.account }),
@@ -99,8 +99,8 @@ describe("NumberGuessingGame", async function () {
     await game.write.setWinningNumber([0n, 8], { account: admin.account });
 
     const session = await game.read.sessions([0n]);
-    assert.equal(session[4].toLowerCase(), "0x0000000000000000000000000000000000000000");
-    assert.equal(session[6], true);
+    assert.equal(session[5].toLowerCase(), "0x0000000000000000000000000000000000000000");
+    assert.equal(session[7], true);
     assert.equal(await publicClient.getBalance({ address: game.address }), 0n);
 
     await viem.assertions.revertWith(
@@ -136,36 +136,70 @@ describe("NumberGuessingGame", async function () {
     assert.equal(await publicClient.getBalance({ address: game.address }), 0n);
   });
 
-  it("allows admin to transfer admin role", async function () {
+  it("supports multiple admins and admin removal", async function () {
     const game = await viem.deployContract("NumberGuessingGame");
     const payout = parseEther("1");
 
     await viem.assertions.revertWith(
-      game.write.changeAdmin([player1.account.address], {
+      game.write.addAdmin([player1.account.address], {
         account: player1.account,
       }),
       "only admin",
     );
 
-    await game.write.changeAdmin([player1.account.address], {
+    await game.write.addAdmin([player1.account.address], {
       account: admin.account,
     });
 
-    assert.equal(
-      (await game.read.admin()).toLowerCase(),
-      player1.account.address.toLowerCase(),
-    );
+    assert.equal(await game.read.admins([admin.account.address]), true);
+    assert.equal(await game.read.admins([player1.account.address]), true);
 
-    await viem.assertions.revertWith(
-      game.write.createSession([10, 5], { account: admin.account, value: payout }),
-      "only admin",
-    );
+    await game.write.createSession([10, 5], { account: admin.account, value: payout });
 
     await game.write.createSession([10, 5], {
       account: player1.account,
       value: payout,
     });
 
-    assert.equal(await game.read.nextSessionId(), 1n);
+    assert.equal(await game.read.nextSessionId(), 2n);
+
+    await testClient.increaseTime({ seconds: 301 });
+    await testClient.mine({ blocks: 1 });
+
+    await game.write.setWinningNumber([0n, 1], { account: player1.account });
+    const firstSession = await game.read.sessions([0n]);
+    assert.equal(firstSession[6], true);
+
+    await game.write.removeAdmin([player1.account.address], { account: admin.account });
+    assert.equal(await game.read.admins([player1.account.address]), false);
+
+    await viem.assertions.revertWith(
+      game.write.createSession([10, 5], { account: player1.account, value: payout }),
+      "only admin",
+    );
+  });
+
+  it("uses optional refund admin when set on session", async function () {
+    const game = await viem.deployContract("NumberGuessingGame");
+    const payout = parseEther("1");
+
+    await game.write.addAdmin([player1.account.address], {
+      account: admin.account,
+    });
+
+    await game.write.createSession([20, 1, admin.account.address], {
+      account: player1.account,
+      value: payout,
+    });
+
+    await testClient.increaseTime({ seconds: 61 });
+    await testClient.mine({ blocks: 1 });
+
+    await game.write.setWinningNumber([0n, 7], { account: player1.account });
+
+    const session = await game.read.sessions([0n]);
+    assert.equal(session[4].toLowerCase(), admin.account.address.toLowerCase());
+    assert.equal(session[7], true);
+    assert.equal(await publicClient.getBalance({ address: game.address }), 0n);
   });
 });

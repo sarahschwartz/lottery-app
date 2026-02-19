@@ -4,7 +4,7 @@ import {
   type PrividiumChain,
   type UserProfile,
 } from "prividium";
-import { prividiumChain } from "./wagmi";
+import { prividiumChain } from "../utils/wagmi";
 
 let prividiumInstance: PrividiumChain | null = null;
 
@@ -160,6 +160,11 @@ export function usePrividium() {
     [prividium],
   );
 
+  async function refreshUserProfile() {
+    await loadUserProfile();
+    return userProfile;
+  }
+
   return {
     isAuthenticated,
     isAuthenticating,
@@ -169,7 +174,7 @@ export function usePrividium() {
     userWallets,
     authError,
     userProfile,
-
+    refreshUserProfile,
     authenticate,
     signOut,
     getAuthHeaders,

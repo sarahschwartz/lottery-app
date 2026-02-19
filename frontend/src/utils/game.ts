@@ -7,6 +7,8 @@ export function formatTimeLeft(seconds: number): string {
 }
 
 export function getRandomWinningNumber(maxNumber: number): number {
+  console.log("MAX NUMBER:", maxNumber);
+  console.log("window.crypto", window.crypto);
   if (maxNumber <= 1) return 1;
 
   const maxUint32 = 0xffffffff; // 2^32 - 1
@@ -79,8 +81,8 @@ export async function getPreviousSessions(
         winningNumber: Number(raw[1]),
         payout: displayedPayout,
         winner: raw[4],
-        winningNumberSet: raw[5],
-        payoutClaimed: raw[6],
+        winningNumberSet: raw[6],
+        payoutClaimed: raw[7],
       });
 
       if (sid === 0n) break;

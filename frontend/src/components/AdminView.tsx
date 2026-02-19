@@ -12,7 +12,7 @@ import type {
   SessionResult,
   SessionState,
 } from "../utils/types";
-import { usePrividium } from "../utils/usePrividium";
+import { usePrividium } from "../hooks/usePrividium";
 import { sendCreateSessionTx, sendSetWinningNumberTx } from "../utils/txns";
 
 const DEFAULT_SESSION_PAYOUT_ETH = "0.1";
@@ -72,8 +72,8 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
         drawTimestamp: rawSession[2],
         payout: rawSession[3],
         winner: rawSession[4],
-        winningNumberSet: rawSession[5],
-        payoutClaimed: rawSession[6],
+        winningNumberSet: rawSession[6],
+        payoutClaimed: rawSession[7],
       });
 
       const previous = await getPreviousSessions(

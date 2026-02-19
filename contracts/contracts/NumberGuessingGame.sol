@@ -7,12 +7,13 @@ contract NumberGuessingGame {
     uint32 winningNumber;
     uint64 drawTimestamp;
     uint256 payout;
+    address refundAdmin;
     address winner;
     bool winningNumberSet;
     bool payoutClaimed;
   }
 
-  address public admin;
+  mapping(address => bool) public admins;
   uint256 public nextSessionId;
 
   mapping(uint256 => Session) public sessions;
@@ -44,41 +45,66 @@ contract NumberGuessingGame {
   );
   event PayoutRefundedToAdmin(uint256 indexed sessionId, uint256 amount);
   event ContractFundsWithdrawal(address indexed to, uint256 amount);
-  event AdminChanged(address indexed previousAdmin, address indexed newAdmin);
+  event AdminAdded(address indexed addedBy, address indexed newAdmin);
+  event AdminRemoved(address indexed removedBy, address indexed removedAdmin);
 
   modifier onlyAdmin() {
-    require(msg.sender == admin, "only admin");
+    require(admins[msg.sender], "only admin");
     _;
   }
 
   constructor() {
-    admin = msg.sender;
+    admins[msg.sender] = true;
+    emit AdminAdded(msg.sender, msg.sender);
   }
 
-  function changeAdmin(address newAdmin) external onlyAdmin {
+  function addAdmin(address newAdmin) external onlyAdmin {
     require(newAdmin != address(0), "invalid admin");
-    address previousAdmin = admin;
-    admin = newAdmin;
-    emit AdminChanged(previousAdmin, newAdmin);
+    require(!admins[newAdmin], "already admin");
+    admins[newAdmin] = true;
+    emit AdminAdded(msg.sender, newAdmin);
+  }
+
+  function removeAdmin(address adminToRemove) external onlyAdmin {
+    require(adminToRemove != address(0), "invalid admin");
+    require(adminToRemove != msg.sender, "cannot remove self");
+    require(admins[adminToRemove], "not admin");
+    admins[adminToRemove] = false;
+    emit AdminRemoved(msg.sender, adminToRemove);
   }
 
   function createSession(uint32 maxNumber, uint32 _minutes) external payable onlyAdmin returns (uint256 sessionId) {
-  // function createSession(uint32 maxNumber, uint32 _hours) external payable onlyAdmin returns (uint256 sessionId) {
+    return _createSession(maxNumber, _minutes, address(0));
+  }
+
+  function createSession(
+    uint32 maxNumber,
+    uint32 _minutes,
+    address refundAdmin
+  ) external payable onlyAdmin returns (uint256 sessionId) {
+    return _createSession(maxNumber, _minutes, refundAdmin);
+  }
+
+  function _createSession(
+    uint32 maxNumber,
+    uint32 _minutes,
+    address refundAdmin
+  ) internal returns (uint256 sessionId) {
     require(maxNumber > 0, "maxNumber must be > 0");
     require(_minutes > 0, "minutes must be > 0");
-    // require(_hours > 0, "hours must be > 0");
     require(msg.value > 0, "payout must be > 0");
+    require(refundAdmin == address(0) || admins[refundAdmin], "invalid refund admin");
 
     sessionId = nextSessionId;
     nextSessionId++;
 
     uint64 drawTimestamp = uint64(block.timestamp + _minutes * 1 minutes);
-    // uint64 drawTimestamp = uint64(block.timestamp + _hours * 1 hours);
     sessions[sessionId] = Session({
       maxNumber: maxNumber,
       winningNumber: 0,
       drawTimestamp: drawTimestamp,
       payout: msg.value,
+      refundAdmin: refundAdmin,
       winner: address(0),
       winningNumberSet: false,
       payoutClaimed: false
@@ -116,7 +142,8 @@ contract NumberGuessingGame {
     if (session.winner == address(0) && !session.payoutClaimed) {
       session.payoutClaimed = true;
       uint256 amount = session.payout;
-      (bool sent, ) = payable(admin).call{value: amount}("");
+      address refundRecipient = session.refundAdmin == address(0) ? msg.sender : session.refundAdmin;
+      (bool sent, ) = payable(refundRecipient).call{value: amount}("");
       require(sent, "admin refund transfer failed");
       emit PayoutRefundedToAdmin(sessionId, amount);
     }

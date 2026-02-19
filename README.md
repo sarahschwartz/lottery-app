@@ -52,16 +52,7 @@ Add the contract and ABI to the admin panel contracts.
 > To copy the abi, go into the `contracts/artifacts/contracts/NumberGuessingGame.sol/NumberGuessingGame.json` file
 > and copy the entire array for the `"abi"`.
 
-Then configure the permissions for the contract as shown below:
-
-`changeAdmin`: check role, admin only
-`createSession`: check role, admin only
-`pickNumber`: check role, admin only
-`pickNumber`: check role, users only
-`setWinningNumber`: check role, admin only
-`withdrawContractFunds`: check role, admin only
-
-All other functions should allowed for all users.
+You can configure the permissions of all contract functions to allow all users.
 
 ### Create a new application ID
 

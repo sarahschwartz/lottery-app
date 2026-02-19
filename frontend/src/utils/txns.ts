@@ -1,14 +1,7 @@
-import {
-  createWalletClient,
-  custom,
-  encodeFunctionData,
-  type Abi,
-} from "viem";
+import { encodeFunctionData, type Abi } from "viem";
 import GAME_ABI_JSON from "./NumberGuessingGame.json";
 import type { PrividiumChain } from "prividium";
-
-const GAME_CONTRACT_ADDRESS = import.meta.env
-  .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
+import { sendWithPasskey } from "./sso/sendTxWithPasskey";
 
 async function sendAuthorizedTx({
   functionName,
@@ -33,45 +26,12 @@ async function sendAuthorizedTx({
     functionName,
     args,
   });
-
-  const walletClient = createWalletClient({
-    chain: prividium.chain,
-    transport: custom(window.ethereum!),
-  });
-
-  const [address] = await walletClient.getAddresses();
-
-  const nonce = await rpcClient.getTransactionCount({ address });
-  const gas = await rpcClient.estimateGas({
-    account: address,
-    to: GAME_CONTRACT_ADDRESS,
+  const hash = await sendWithPasskey(
     data,
+    rpcClient,
+    prividium.authorizeTransaction,
     value,
-  });
-  const gasPrice = await rpcClient.getGasPrice();
-
-  const request = await walletClient.prepareTransactionRequest({
-    account: address,
-    to: GAME_CONTRACT_ADDRESS,
-    data,
-    nonce,
-    gas,
-    gasPrice,
-    value,
-  });
-
-  await prividium.authorizeTransaction({
-    walletAddress: address,
-    toAddress: GAME_CONTRACT_ADDRESS,
-    nonce: request.nonce,
-    calldata: request.data,
-    value: request.value ?? 0n,
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hash = await walletClient.sendTransaction(request as any);
-  await rpcClient.waitForTransactionReceipt({ hash });
-
+  );
   return hash;
 }
 
@@ -80,7 +40,7 @@ export const sendPickNumberTx = async (
   selectedNumber: number,
   prividium: PrividiumChain,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rpcClient: any
+  rpcClient: any,
 ) => {
   return sendAuthorizedTx({
     functionName: "pickNumber",
@@ -96,7 +56,7 @@ export const sendCreateSessionTx = async (
   payout: bigint,
   prividium: PrividiumChain,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rpcClient: any
+  rpcClient: any,
 ) => {
   return sendAuthorizedTx({
     functionName: "createSession",
@@ -112,7 +72,7 @@ export const sendSetWinningNumberTx = async (
   winningNumber: number,
   prividium: PrividiumChain,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rpcClient: any
+  rpcClient: any,
 ) => {
   return sendAuthorizedTx({
     functionName: "setWinningNumber",
@@ -126,7 +86,7 @@ export const sendClaimPayoutTx = async (
   sessionId: bigint,
   prividium: PrividiumChain,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rpcClient: any
+  rpcClient: any,
 ) => {
   return sendAuthorizedTx({
     functionName: "claimPayout",

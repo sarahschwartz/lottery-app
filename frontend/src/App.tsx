@@ -1,14 +1,12 @@
-import { LoaderCircle, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import "./App.css";
 import { LoggedInView } from "./components/LoggedInView";
-import { usePrividium } from "./utils/usePrividium";
-import { injected, useConnect, useConnection } from "wagmi";
+import { usePrividium } from "./hooks/usePrividium";
+import { Header } from "./components/Header";
 
 function App() {
   const { isAuthenticated, isAuthenticating, authError, authenticate } =
     usePrividium();
-  const { isConnected, isConnecting } = useConnection();
-  const connect = useConnect();
 
   const login = async () => {
     const success = await authenticate();
@@ -18,50 +16,54 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen">
-      {isAuthenticated ? (
-        <>
-          {!isConnected ? (
-            <button
-              type="button"
-              disabled={isConnecting}
-              onClick={() => connect.mutate({ connector: injected() })}
-              className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isConnecting ? "Connecting wallet..." : "Connect wallet to play"}
-            </button>
-          ) : (
-            <LoggedInView />
-          )}
-        </>
-      ) : (
-        <div>
-          <p>You are NOT authenticated 🥺</p>
-
-          {authError && (
-            <div className="mt-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3">
-              <TriangleAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-red-700 font-bold leading-relaxed">
-                {authError}
-              </p>
-            </div>
-          )}
-
-          {isAuthenticating && (
-          <div className="w-full place-items-center">
-            <LoaderCircle className="animate-spin" />
-            </div>
-        )}
-
-          <button
-            onClick={login}
-            className="mt-2 p-2 text-base cursor-pointer border border-blue-400 rounded-sm"
-            disabled={isAuthenticating}
+    <div className="min-h-screen flex flex-col font-sans">
+      <div className="grow container mx-auto px-4 py-12 max-w-7xl">
+        <div className="min-h-[70vh] flex items-center justify-center p-6">
+          <div
+            className={`w-full enterprise-card overflow-hidden' ${isAuthenticated ? "max-w-4xl" : "max-w-md"}`}
           >
-            Authenticate via Prividium
-          </button>
+            <div className="p-8 md:p-10">
+              
+              {!isAuthenticated && (
+                <Header isAuthenticated={false} />
+              )}
+
+              
+              {/* AUTHENTICATING STATE */}
+              {isAuthenticating && (
+                <div className="flex flex-col items-center py-8">
+                  <div className="w-10 h-10 border-4 border-accent/10 border-t-accent rounded-full animate-spin mb-4"></div>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
+                    Authenticating...
+                  </p>
+                </div>
+              )}
+
+              {isAuthenticated ? (
+                <LoggedInView />
+              ) : (
+                <div className="space-y-6">
+                  <button
+                    onClick={login}
+                    className="enterprise-button-primary w-full py-4 text-base"
+                  >
+                    Authenticate via Prividium
+                  </button>
+                </div>
+              )}
+
+              {authError && (
+                <div className="mt-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3">
+                  <TriangleAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700 font-bold leading-relaxed">
+                    {authError}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

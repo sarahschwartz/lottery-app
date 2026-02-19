@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatEther, type Client } from "viem";
 import { useConnection } from "wagmi";
-import { usePrividium } from "../utils/usePrividium";
+import { usePrividium } from "../hooks/usePrividium";
 import { formatTimeLeft } from "../utils/game";
 import type { SessionResult, SessionState } from "../utils/types";
 import { sendClaimPayoutTx, sendPickNumberTx } from "../utils/txns";
@@ -62,7 +62,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
       const maxNumber = Number(rawSession[0]);
       const drawTimestamp = rawSession[2];
       const payout = rawSession[3];
-      const winningNumberSet = rawSession[5];
+      const winningNumberSet = rawSession[6];
 
       setSession({
         sessionId: latestSessionId,
@@ -98,8 +98,8 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
         for (let sid = latestSessionId; sid >= 0n; sid -= 1n) {
           const raw = (await gameContract.read.sessions([sid])) as SessionResult;
           const winner = raw[4];
-          const winningNumberSetForSid = raw[5];
-          const payoutClaimedForSid = raw[6];
+          const winningNumberSetForSid = raw[6];
+          const payoutClaimedForSid = raw[7];
           const isWinningSession =
             winningNumberSetForSid &&
             !payoutClaimedForSid &&
@@ -167,6 +167,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
       Number(session.drawTimestamp) - currentSec,
     );
   }, [chainNowSec, session]);
+
 
   const isSessionClosed = useMemo(() => {
     if (!session) return true;
