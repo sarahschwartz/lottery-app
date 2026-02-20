@@ -199,6 +199,17 @@ export async function sendTxWithPasskey(
     signature: '0x' as Hex
   };
 
+  const usePaymaster = Boolean(ssoContracts.paymaster);
+  const paymasterData = '0x' as Hex;
+  if (usePaymaster) {
+    packedUserOp.paymasterAndData = concat([
+      ssoContracts.paymaster as Hex,
+      pad(toHex(ssoContracts.paymasterVerificationGasLimit), { size: 16 }),
+      pad(toHex(ssoContracts.paymasterPostOpGasLimit), { size: 16 }),
+      paymasterData
+    ]);
+  }
+
   // Calculate UserOperation hash manually using EIP-712 for v0.8
   const PACKED_USEROP_TYPEHASH =
     '0x29a0bca4af4be3421398da00295e58e6d7de38cb492214754cb6a47507dd6f8e';
@@ -296,10 +307,14 @@ export async function sendTxWithPasskey(
     preVerificationGas: toHex(gasOptions.preVerificationGas),
     maxFeePerGas: toHex(gasOptions.maxFeePerGas),
     maxPriorityFeePerGas: toHex(gasOptions.maxPriorityFeePerGas),
-    paymaster: null, // No paymaster
-    paymasterVerificationGasLimit: null,
-    paymasterPostOpGasLimit: null,
-    paymasterData: null,
+    paymaster: usePaymaster ? ssoContracts.paymaster : null,
+    paymasterVerificationGasLimit: usePaymaster
+      ? toHex(ssoContracts.paymasterVerificationGasLimit)
+      : null,
+    paymasterPostOpGasLimit: usePaymaster
+      ? toHex(ssoContracts.paymasterPostOpGasLimit)
+      : null,
+    paymasterData: usePaymaster ? paymasterData : null,
     signature: packedUserOp.signature
   };
 
@@ -351,7 +366,7 @@ export async function sendTxWithPasskey(
 
   if (receipt.success) {
     console.log('RECEIPT:', receipt);
-    console.log('✅ Transfer successful!');
+    console.log('✅ Tx successful!');
     return receipt.receipt.transactionHash;
   }
 
