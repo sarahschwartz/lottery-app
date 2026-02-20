@@ -12,6 +12,7 @@ import {
 } from "../utils/sso/sendTxWithPasskey";
 import { loadExistingPasskey } from "../utils/sso/passkeys";
 import { usePrividium } from "../hooks/usePrividium";
+import { BLOCK_EXPLORER_URL } from "../utils/sso/constants";
 
 interface Props {
   balance: bigint | null;
@@ -187,7 +188,7 @@ export function SendTab({ balance, rpcClient }: Props) {
               <span>
                 <a
                   id="transfer-tx-link"
-                  href={`https://zksync-os-testnet-alpha.staging-scan-v2.zksync.dev/tx/${txHash}`}
+                  href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="break-all text-slate-700 underline hover:text-slate-900"

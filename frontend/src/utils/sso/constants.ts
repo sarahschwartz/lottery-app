@@ -10,6 +10,8 @@ export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "http://localhost:4340";
 export const DEPLOY_ACCOUNT_ENDPOINT = `${BACKEND_URL}/deploy-account`;
 
+export const BLOCK_EXPLORER_URL = import.meta.env.VITE_BLOCK_EXPLORER_URL || 'http://localhost:3010';
+
 const paymasterAddressEnv = import.meta.env.VITE_SSO_PAYMASTER;
 const paymasterVerificationGasLimitEnv =
   import.meta.env.VITE_SSO_PAYMASTER_VERIFICATION_GAS_LIMIT;
