@@ -27,7 +27,7 @@ export function SendTab({ balance, rpcClient }: Props) {
   const [error, setError] = useState<string>();
   const [txHash, setTxHash] = useState<string>();
   const { savedPasskey, savedAccount } = loadExistingPasskey();
-  const { enableWalletToken } = usePrividium();
+  const { prividium } = usePrividium();
   const btnsDisabled = savedPasskey && savedAccount && balance ? false : true;
 
   function handleAmountChange(e: ChangeEvent<HTMLInputElement>) {
@@ -82,7 +82,7 @@ export function SendTab({ balance, rpcClient }: Props) {
         txData,
         gasOptions,
         rpcClient,
-        enableWalletToken,
+        prividium.authorizeTransaction,
       );
 
       setTxHash(hash);

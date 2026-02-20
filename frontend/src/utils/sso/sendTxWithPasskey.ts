@@ -13,8 +13,8 @@ import {
 import { requestPasskeyAuthentication } from 'zksync-sso/client/passkey';
 import { base64UrlToUint8Array, unwrapEC2Signature } from 'zksync-sso/utils';
 
-import { ssoContracts } from './constants';
-import type { PasskeyCredential } from '../types';
+import { ENTRYPOINT_ABI, ssoContracts } from './constants';
+import type { AuthorizeTxFn, PasskeyCredential } from '../types';
 import { prividiumChain } from '../wagmi';
 
 
@@ -110,18 +110,9 @@ export async function sendTxWithPasskey(
     maxFeePerGas: bigint;
     maxPriorityFeePerGas: bigint;
   },
-  readClient?: PublicClient,
-  enableWalletToken?: (params: {
-    walletAddress: `0x${string}`;
-    contractAddress: `0x${string}`;
-    nonce: number;
-    calldata: `0x${string}`;
-  }) => Promise<{ message: string; activeUntil: string }>
+  readClient: PublicClient,
+  authorizeTx: AuthorizeTxFn,
 ) {
-  if (!readClient) {
-    throw new Error('Authenticated RPC client required to send transactions.');
-  }
-
   const totalValue = txData.reduce((sum, call) => sum + call.value, 0n);
   if (totalValue > 0n) {
     const balance = await readClient.getBalance({ address: accountAddress });
@@ -173,20 +164,6 @@ export async function sendTxWithPasskey(
     encodeAbiParameters([{ type: 'bytes32' }, { type: 'bytes' }], [modeCode, executionData])
   ]);
 
-  // Get nonce from EntryPoint
-  const ENTRYPOINT_ABI = [
-    {
-      type: 'function',
-      name: 'getNonce',
-      inputs: [
-        { name: 'sender', type: 'address' },
-        { name: 'key', type: 'uint192' }
-      ],
-      outputs: [{ name: 'nonce', type: 'uint256' }],
-      stateMutability: 'view'
-    }
-  ];
-
   const nonce = await readClient.readContract({
     address: ssoContracts.entryPoint,
     abi: ENTRYPOINT_ABI,
@@ -195,19 +172,19 @@ export async function sendTxWithPasskey(
     account: accountAddress
   });
 
-  if (enableWalletToken && txData.length > 0) {
+  // TODO: either just accept one tx or loop through them all
     const primaryCall = txData[0];
     const nonceNumber = Number(nonce);
     if (!Number.isSafeInteger(nonceNumber)) {
       throw new Error('Nonce too large to authorize transaction');
     }
-    await enableWalletToken({
+    await authorizeTx({
       walletAddress: accountAddress,
-      contractAddress: primaryCall.to,
+      toAddress: primaryCall.to,
       nonce: nonceNumber,
-      calldata: primaryCall.data
+      calldata: primaryCall.data,
+      value: primaryCall.value
     });
-  }
 
   // Create PackedUserOperation for v0.8
   const packedUserOp = {

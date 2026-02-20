@@ -32,7 +32,7 @@ export function AdminView({
   chainNowSec,
   accountBalance,
 }: Props) {
-  const { enableWalletToken } = usePrividium();
+  const { prividium } = usePrividium();
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [previousSessions, setPreviousSessions] = useState<
@@ -51,7 +51,7 @@ export function AdminView({
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const { createSession, setWinningNumber } = useGameContract(rpcClient as PublicClient, enableWalletToken);
+  const { createSession, setWinningNumber } = useGameContract(rpcClient as PublicClient, prividium.authorizeTransaction);
 
   const loadSession = useCallback(async () => {
     setIsLoading(true);

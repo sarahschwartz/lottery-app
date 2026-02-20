@@ -7,18 +7,14 @@ import {
 import { loadExistingPasskey } from "../utils/sso/passkeys";
 import { buildGasOptions, sendTxWithPasskey } from "../utils/sso/sendTxWithPasskey";
 import GAME_ABI_JSON from "../utils/NumberGuessingGame.json";
+import type { AuthorizeTxFn } from "../utils/types";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
 
 export function useGameContract(
   rpcClient: PublicClient,
-  enableWalletToken?: (params: {
-    walletAddress: `0x${string}`;
-    contractAddress: `0x${string}`;
-    nonce: number;
-    calldata: `0x${string}`;
-  }) => Promise<{ message: string; activeUntil: string }>,
+  authorizeTx: AuthorizeTxFn,
 ) {
   const contract = getContract({
     address: GAME_CONTRACT_ADDRESS,
@@ -48,7 +44,7 @@ export function useGameContract(
       txData,
       gasOptions,
       rpcClient,
-      enableWalletToken,
+      authorizeTx,
     );
   };
 

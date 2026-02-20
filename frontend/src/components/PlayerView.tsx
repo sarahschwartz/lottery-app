@@ -22,8 +22,8 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const { address } = useConnection();
   const { account } = useSsoAccount();
   const activeAddress = account ?? address;
-  const { enableWalletToken, userRoles } = usePrividium();
-  const { pickNumber, claimPayout } = useGameContract(rpcClient as PublicClient, enableWalletToken);
+  const { prividium, userRoles } = usePrividium();
+  const { pickNumber, claimPayout } = useGameContract(rpcClient as PublicClient, prividium.authorizeTransaction);
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);

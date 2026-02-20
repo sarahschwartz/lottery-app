@@ -165,20 +165,6 @@ export function usePrividium() {
     return userProfile;
   }
 
-    async function enableWalletToken(params: {
-    walletAddress: `0x${string}`;
-    contractAddress: `0x${string}`;
-    nonce: number;
-    calldata: `0x${string}`;
-  }) {
-    return prividium.authorizeTransaction({
-      walletAddress: params.walletAddress,
-      toAddress: params.contractAddress,
-      nonce: params.nonce,
-      calldata: params.calldata
-    });
-  }
-
   return {
     isAuthenticated,
     isAuthenticating,
@@ -197,7 +183,6 @@ export function usePrividium() {
     addNetworkToWallet,
     getWalletToken,
     getWalletRpcUrl,
-    enableWalletToken,
     prividium,
   };
 }
