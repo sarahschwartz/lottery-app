@@ -103,17 +103,23 @@ export function SendTab({ balance, rpcClient }: Props) {
   }
 
   return (
-    <div className="tab-content" id="send-tab">
-      <div className="tab-header">
-        {/* <BackButton setActiveTab={setActiveTab} /> */}
-        <div id="send-money" className="tab-title">
+    <div
+      id="send-tab"
+      className="mx-auto max-w-4xl rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-xl shadow-slate-200/60 sm:p-8"
+    >
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div id="send-money" className="text-2xl font-semibold tracking-tight text-slate-900">
           Send Money
         </div>
       </div>
-      <div className="card">
-        <form onSubmit={handleSubmit} id="transfer-form">
-          <div className="form-group">
-            <label id="send-recipient" htmlFor="recipientAddress">
+      <div className="space-y-6">
+        <form onSubmit={handleSubmit} id="transfer-form" className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+          <div className="space-y-1">
+            <label
+              id="send-recipient"
+              htmlFor="recipientAddress"
+              className="text-xs uppercase tracking-wide text-slate-500"
+            >
               Recipient Address
             </label>
             <input
@@ -121,19 +127,29 @@ export function SendTab({ balance, rpcClient }: Props) {
               id="recipientAddress"
               placeholder="0x..."
               onChange={(e) => setRecipient(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500"
             />
           </div>
 
-          <div className="form-group">
-            <div className="label-row">
-              <label id="send-amount" htmlFor="transferAmount">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <label
+                id="send-amount"
+                htmlFor="transferAmount"
+                className="text-xs uppercase tracking-wide text-slate-500"
+              >
                 Amount (ETH)
               </label>
               <span
-                className="max-link"
                 onClick={btnsDisabled || isSending ? undefined : handleMax}
                 role="button"
                 tabIndex={btnsDisabled || isSending ? -1 : 0}
+                className={[
+                  "text-sm font-medium",
+                  btnsDisabled || isSending
+                    ? "cursor-not-allowed text-slate-400"
+                    : "cursor-pointer text-slate-700 hover:text-slate-900",
+                ].join(" ")}
               >
                 Max
               </span>
@@ -147,6 +163,7 @@ export function SendTab({ balance, rpcClient }: Props) {
               value={amount}
               onChange={handleAmountChange}
               disabled={btnsDisabled || isSending}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             />
           </div>
 
@@ -154,26 +171,28 @@ export function SendTab({ balance, rpcClient }: Props) {
             id="transferBtn"
             disabled={btnsDisabled || isSending}
             type="submit"
+            className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {isSending ? "Sending..." : "Send ETH"}
           </button>
         </form>
 
         {isSuccess && (
-          <div id="transfer-success" className="alert alert-success">
+          <div id="transfer-success" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
             <strong id="send-tx-sent">✓ Transaction Sent!</strong>
-            <div className="info-row">
-              <span id="send-tx-label" className="info-label">
+            <div className="mt-2 flex flex-wrap items-start gap-2">
+              <span id="send-tx-label" className="font-medium">
                 Transaction:
               </span>
-              <span className="info-value">
+              <span>
                 <a
                   id="transfer-tx-link"
                   href={`https://zksync-os-testnet-alpha.staging-scan-v2.zksync.dev/tx/${txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="break-all text-slate-700 underline hover:text-slate-900"
                 >
-                  <code id="txHashDisplay">{txHash}</code>
+                  <code id="txHashDisplay" className="text-xs">{txHash}</code>
                 </a>
               </span>
             </div>
@@ -181,7 +200,7 @@ export function SendTab({ balance, rpcClient }: Props) {
         )}
 
         {transferError && (
-          <div id="transfer-error" className="alert alert-error">
+          <div id="transfer-error" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
             Transfer failed: {error}
           </div>
         )}
