@@ -17,6 +17,35 @@ import { ssoContracts } from './constants';
 import type { PasskeyCredential } from '../types';
 import { prividiumChain } from '../wagmi';
 
+
+export const buildGasOptions = () => {
+    const callGasLimit = 500000n;
+    const verificationGasLimit = 2000000n;
+    const maxFeePerGas = 10000000000n;
+    const maxPriorityFeePerGas = 5000000000n;
+    const preVerificationGas = 200000n;
+
+    const accountGasLimits = pad(
+      toHex((verificationGasLimit << 128n) | callGasLimit),
+      {
+        size: 32,
+      },
+    );
+    const gasFees = pad(toHex((maxPriorityFeePerGas << 128n) | maxFeePerGas), {
+      size: 32,
+    });
+
+    return {
+      gasFees,
+      accountGasLimits,
+      callGasLimit,
+      verificationGasLimit,
+      preVerificationGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    };
+  };
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;

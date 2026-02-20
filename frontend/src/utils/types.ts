@@ -66,4 +66,7 @@ type AuthorizeTransactionParams = {
     value: bigint;
 };
 
+// TODO: use this
 export type AuthorizeTxFn = (params: AuthorizeTransactionParams) => Promise<{ message: string; activeUntil: string }>;
+
+export type Tab = 'game' | 'send';

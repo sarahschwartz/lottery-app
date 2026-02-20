@@ -12,6 +12,8 @@ import { AdminView } from "./AdminView";
 import { PlayerView } from "./PlayerView";
 import { PasskeyLogin } from "./PasskeyLogin";
 import { Header } from "./Header";
+import { SendTab } from "./SendTab";
+import type { Tab } from "../utils/types";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
@@ -21,6 +23,7 @@ interface Props {
   address: Address | undefined;
   rpcClient: PublicClient;
   accountBalance: bigint | null;
+  tab: Tab;
 }
 
 export function LoggedInView({
@@ -28,6 +31,7 @@ export function LoggedInView({
   address,
   rpcClient,
   accountBalance,
+  tab
 }: Props) {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [chainNowSec, setChainNowSec] = useState<number | null>(null);
@@ -94,6 +98,8 @@ export function LoggedInView({
         <>
           {address && gameContract && rpcClient ? (
             <>
+            {tab === 'game' ? (
+              <>
               {isAdmin ? (
                 <AdminView
                   gameContract={gameContract}
@@ -108,6 +114,12 @@ export function LoggedInView({
                   chainNowSec={chainNowSec}
                 />
               )}
+              </>
+            ) : (
+              <>
+              <SendTab balance={accountBalance} rpcClient={rpcClient} />
+              </>
+            )}
             </>
           ) : (
             <>

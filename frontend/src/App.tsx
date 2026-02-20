@@ -9,18 +9,24 @@ import { createPrividiumClient } from "prividium";
 import { prividiumChain } from "./utils/wagmi";
 import { useSsoAccount } from "./hooks/useSSOAccount";
 import type { Address, PublicClient } from "viem";
+import type { Tab } from "./utils/types";
 
 function App() {
+  const [tab, setTab] = useState<Tab>("game");
   const [accountBalance, setAccountBalance] = useState<bigint | null>(null);
-    const [completedAccountAddress, setCompletedAccountAddress] =
+  const [completedAccountAddress, setCompletedAccountAddress] =
     useState<Address | null>(null);
-    
-  const { isAuthenticated, isAuthenticating, authError, authenticate, prividium } =
-    usePrividium();
-     const { account } = useSsoAccount();
+
+  const {
+    isAuthenticated,
+    isAuthenticating,
+    authError,
+    authenticate,
+    prividium,
+  } = usePrividium();
+  const { account } = useSsoAccount();
 
   const address = completedAccountAddress || account || undefined;
-
 
   const login = async () => {
     const success = await authenticate();
@@ -29,7 +35,7 @@ function App() {
     }
   };
 
-    const rpcClient = useMemo(() => {
+  const rpcClient = useMemo(() => {
     if (isAuthenticated && address) {
       return createPrividiumClient({
         chain: prividiumChain,
@@ -39,7 +45,7 @@ function App() {
     }
   }, [address, prividium.transport, isAuthenticated]);
 
-   useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
 
     const syncBalance = async () => {
@@ -67,7 +73,9 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
-      <NavBar accountBalance={accountBalance} />
+      {address && accountBalance !== null && (
+        <NavBar accountBalance={accountBalance} ssoAccount={address} setTab={setTab} tab={tab} />
+      )}
 
       <div className="grow container mx-auto px-4 py-2 md:py-4 max-w-7xl">
         <div className="min-h-[72vh] flex items-center justify-center p-2 md:p-6">
@@ -75,12 +83,8 @@ function App() {
             className={`w-full enterprise-card overflow-hidden ${isAuthenticated ? "max-w-5xl" : "max-w-md"}`}
           >
             <div className="p-6 md:p-8 lg:p-10">
-              
-              {!isAuthenticated && (
-                <Header isAuthenticated={false} />
-              )}
+              {!isAuthenticated && <Header isAuthenticated={false} />}
 
-              
               {/* AUTHENTICATING STATE */}
               {isAuthenticating && (
                 <div className="flex flex-col items-center py-8">
@@ -92,7 +96,13 @@ function App() {
               )}
 
               {isAuthenticated ? (
-                <LoggedInView accountBalance={accountBalance} rpcClient={rpcClient as PublicClient} address={address} setCompletedAccountAddress={setCompletedAccountAddress} />
+                <LoggedInView
+                  accountBalance={accountBalance}
+                  rpcClient={rpcClient as PublicClient}
+                  address={address}
+                  setCompletedAccountAddress={setCompletedAccountAddress}
+                  tab={tab}
+                />
               ) : (
                 <div className="space-y-6">
                   <button

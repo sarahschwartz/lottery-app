@@ -1,26 +1,24 @@
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { Wallet, ChevronDown, Check, Copy, LogOut } from "lucide-react";
 
 import { usePrividium } from "../hooks/usePrividium";
-import { useSsoAccount } from "../hooks/useSSOAccount";
-import { formatEther } from "viem";
+import { formatEther, type Address } from "viem";
+import type { Tab } from "../utils/types";
 
 interface Props {
-    accountBalance: bigint | null;
+    accountBalance: bigint;
+    ssoAccount: Address;
+    setTab: Dispatch<SetStateAction<Tab>>;
+    tab: Tab;
 }
 
-export function NavBar({ accountBalance }: Props) {
-  const { account: ssoAccount } = useSsoAccount();
-  const { isAuthenticated, signOut } = usePrividium();
+export function NavBar({ accountBalance, ssoAccount, setTab, tab }: Props) {
+  const { signOut } = usePrividium();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const canShowSessionControls = Boolean(isAuthenticated || ssoAccount);
-
   const copyAddress = async () => {
-    if (!ssoAccount) return;
-
     try {
       await navigator.clipboard.writeText(ssoAccount);
       setCopied(true);
@@ -42,18 +40,31 @@ export function NavBar({ accountBalance }: Props) {
     }
   };
 
+  function switchTab(){
+    if(tab === 'game'){
+        setTab('send');
+    } else {
+        setTab('game');
+    }
+  }
+
   return (
     <nav className="floating-navbar">
       <div className="floating-navbar-inner">
         <div className="flex items-center gap-4 w-full justify-between">
-          {ssoAccount && accountBalance !== null ? (
-            <>
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">
                 <span className="text-slate-500">Balance</span>
                 <span className="font-semibold text-slate-900">
                   {Number(formatEther(accountBalance)).toFixed(4)} ETH
                 </span>
               </div>
+
+              <div>
+                <button onClick={switchTab} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 md:px-6 py-2.5 rounded-full transition-all flex items-center gap-2.5 shadow-sm text-sm font-medium">
+                {tab === 'game' ? "Send ETH" : "Play Game"}
+                </button>
+              </div>
+
               <div className="relative">
                 <button
                   type="button"
@@ -96,12 +107,6 @@ export function NavBar({ accountBalance }: Props) {
                   </div>
                 )}
               </div>
-            </>
-          ) : canShowSessionControls ? (
-            <div className="text-xs font-semibold text-slate-500 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
-              SSO account not linked
-            </div>
-          ) : null}
         </div>
       </div>
     </nav>
