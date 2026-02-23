@@ -62,8 +62,8 @@ function App() {
       }
     };
 
-    void syncBalance();
-    const interval = setInterval(() => void syncBalance(), 5000);
+    syncBalance();
+    const interval = setInterval(syncBalance, 5000);
 
     return () => {
       isMounted = false;
