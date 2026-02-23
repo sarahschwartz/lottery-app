@@ -6,7 +6,10 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy-game": "hardhat ignition deploy --network localPrividium ignition/modules/Game.ts",
-    "create-new-session": "hardhat run scripts/create-session.ts --network localPrividium"
+    "deploy-paymaster": "hardhat ignition deploy --network localPrividium ignition/modules/Paymaster.ts",
+    "add-admin": "hardhat run scripts/add-admin.ts",
+    "remove-admin": "hardhat run scripts/remove-admin.ts",
+    "fund-paymaster": "hardhat run scripts/fund-paymaster.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.7",

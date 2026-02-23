@@ -1,31 +1,43 @@
-import { getContract, isAddress } from "viem";
+import { getContract, isAddress, type Address, type PublicClient } from "viem";
 import GAME_ABI_JSON from "../utils/NumberGuessingGame.json";
-import { prividiumChain } from "../utils/wagmi";
-import { createPrividiumClient } from "prividium";
-import { useEffect, useMemo, useState } from "react";
-import { usePrividium } from "../utils/usePrividium";
-import { useConnection } from "wagmi";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { usePrividium } from "../hooks/usePrividium";
 import { AdminView } from "./AdminView";
 import { PlayerView } from "./PlayerView";
+import { PasskeyLogin } from "./PasskeyLogin";
+import { Header } from "./Header";
+import { SendTab } from "./SendTab";
+import { WithdrawTab } from "./WithdrawTab";
+import type { Tab } from "../utils/types";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
 
-export function LoggedInView() {
+interface Props {
+  setCompletedAccountAddress: Dispatch<SetStateAction<Address | null>>;
+  address: Address | undefined;
+  rpcClient: PublicClient;
+  accountBalance: bigint | null;
+  tab: Tab;
+}
+
+export function LoggedInView({
+  setCompletedAccountAddress,
+  address,
+  rpcClient,
+  accountBalance,
+  tab,
+}: Props) {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [chainNowSec, setChainNowSec] = useState<number | null>(null);
-  const { prividium, isAuthenticated } = usePrividium();
-  const { address } = useConnection();
 
-  const rpcClient = useMemo(() => {
-    if (isAuthenticated) {
-      return createPrividiumClient({
-        chain: prividiumChain,
-        transport: prividium.transport,
-        account: address,
-      });
-    }
-  }, [address, prividium.transport, isAuthenticated]);
+  const { isAuthenticated } = usePrividium();
 
   const gameContract = useMemo(() => {
     if (rpcClient) {
@@ -64,41 +76,56 @@ export function LoggedInView() {
 
   useEffect(() => {
     async function getContractAdmin() {
-      if(!isAuthenticated || !gameContract){
-        console.log("not authenticated or no contract");
+      if (!isAuthenticated || !gameContract) {
+        setIsAdmin(false);
         return;
       }
       if (!address || !isAddress(address)) {
-        console.log("missing wallet address");
+        setIsAdmin(false);
         return;
       }
-      const admin = (await gameContract.read.admin()) as string;
-      if (!admin || !isAddress(admin)) {
-        console.log("error getting contract admin");
-        return;
-      }
-      if (admin.toLowerCase() === address?.toLowerCase()) setIsAdmin(true);
+      const admin = await gameContract.read.admins([address]);
+      setIsAdmin(admin === true);
     }
 
     getContractAdmin();
   }, [address, gameContract, isAuthenticated]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
-      {isAuthenticated && gameContract && rpcClient && (
+    <div className="px-2 py-2 text-slate-900">
+      {isAuthenticated && (
         <>
-          {isAdmin ? (
-            <AdminView
-              gameContract={gameContract}
-              rpcClient={rpcClient}
-              chainNowSec={chainNowSec}
-            />
+          {address && gameContract && rpcClient ? (
+            <>
+              {tab === "game" &&
+                (isAdmin ? (
+                  <AdminView
+                    gameContract={gameContract}
+                    rpcClient={rpcClient}
+                    chainNowSec={chainNowSec}
+                    accountBalance={accountBalance}
+                  />
+                ) : (
+                  <PlayerView
+                    gameContract={gameContract}
+                    rpcClient={rpcClient}
+                    chainNowSec={chainNowSec}
+                  />
+                ))}
+              {tab === "send" && (
+                <div className="space-y-4">
+                  <WithdrawTab balance={accountBalance} rpcClient={rpcClient} />
+                  <SendTab balance={accountBalance} rpcClient={rpcClient} />
+                </div>
+              )}
+            </>
           ) : (
-            <PlayerView
-              gameContract={gameContract}
-              rpcClient={rpcClient}
-              chainNowSec={chainNowSec}
-            />
+            <>
+              <Header isAuthenticated={true} />
+              <PasskeyLogin
+                setCompletedAccountAddress={setCompletedAccountAddress}
+              />
+            </>
           )}
         </>
       )}

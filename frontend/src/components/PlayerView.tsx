@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatEther, type Client } from "viem";
+import { formatEther, type Client, type PublicClient } from "viem";
 import { useConnection } from "wagmi";
-import { usePrividium } from "../utils/usePrividium";
+import { usePrividium } from "../hooks/usePrividium";
+import { useSsoAccount } from "../hooks/useSSOAccount";
 import { formatTimeLeft } from "../utils/game";
 import type { SessionResult, SessionState } from "../utils/types";
-import { sendClaimPayoutTx, sendPickNumberTx } from "../utils/txns";
+import { useGameContract } from "../hooks/useGameContract";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
   .VITE_GAME_CONTRACT_ADDRESS as `0x${string}`;
@@ -19,7 +20,10 @@ interface Props {
 
 export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const { address } = useConnection();
-  const { prividium } = usePrividium();
+  const { account } = useSsoAccount();
+  const activeAddress = account ?? address;
+  const { prividium, userRoles } = usePrividium();
+  const { pickNumber, claimPayout } = useGameContract(rpcClient as PublicClient, prividium.authorizeTransaction);
 
   const [session, setSession] = useState<SessionState | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
@@ -33,7 +37,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const loadSession = useCallback(async () => {
-    if (!GAME_CONTRACT_ADDRESS) {
+    if (!GAME_CONTRACT_ADDRESS || !gameContract) {
       setError("Game contract is not configured.");
       setIsLoading(false);
       return;
@@ -62,16 +66,17 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
       const maxNumber = Number(rawSession[0]);
       const drawTimestamp = rawSession[2];
       const payout = rawSession[3];
-      const winningNumberSet = rawSession[5];
+      const winningNumberSet = rawSession[6];
 
       setSession({
         sessionId: latestSessionId,
         maxNumber,
+        winningNumber: Number(rawSession[1]),
         drawTimestamp,
         payout,
-        winner: rawSession[4],
+        winner: rawSession[5],
         winningNumberSet,
-        payoutClaimed: rawSession[6],
+        payoutClaimed: rawSession[7],
       });
 
       const bitmap = (await gameContract.read.getTakenBitmap([
@@ -93,23 +98,24 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
       setTakenNumbers(nextTaken);
 
-      if (address) {
+      if (activeAddress) {
         let unclaimedWinningSession: SessionState | null = null;
         for (let sid = latestSessionId; sid >= 0n; sid -= 1n) {
           const raw = (await gameContract.read.sessions([sid])) as SessionResult;
-          const winner = raw[4];
-          const winningNumberSetForSid = raw[5];
-          const payoutClaimedForSid = raw[6];
+          const winner = raw[5];
+          const winningNumberSetForSid = raw[6];
+          const payoutClaimedForSid = raw[7];
           const isWinningSession =
             winningNumberSetForSid &&
             !payoutClaimedForSid &&
             winner.toLowerCase() !== ZERO_ADDRESS &&
-            winner.toLowerCase() === address.toLowerCase();
+            winner.toLowerCase() === activeAddress.toLowerCase();
 
           if (isWinningSession) {
             unclaimedWinningSession = {
               sessionId: sid,
               maxNumber: Number(raw[0]),
+              winningNumber: Number(raw[1]),
               drawTimestamp: raw[2],
               payout: raw[3],
               winner,
@@ -125,12 +131,12 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
         const hasPicked = (await gameContract.read.hasPicked([
           latestSessionId,
-          address,
+          activeAddress,
         ])) as boolean;
         if (hasPicked) {
           const picked = (await gameContract.read.getPickedNumber([
             latestSessionId,
-            address,
+            activeAddress,
           ])) as number;
           setMyPickedNumber(picked);
           setSelectedNumber(picked);
@@ -152,7 +158,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [address, gameContract]);
+  }, [activeAddress, gameContract]);
 
   useEffect(() => {
     loadSession();
@@ -168,6 +174,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     );
   }, [chainNowSec, session]);
 
+
   const isSessionClosed = useMemo(() => {
     if (!session) return true;
     return session.winningNumberSet || secondsLeft <= 0;
@@ -179,12 +186,12 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
   }, [session]);
 
   const isWinner = useMemo(() => {
-    if (!session || !address || !session.winningNumberSet) return false;
+    if (!session || !activeAddress || !session.winningNumberSet) return false;
     return (
       session.winner.toLowerCase() !== ZERO_ADDRESS &&
-      session.winner.toLowerCase() === address.toLowerCase()
+      session.winner.toLowerCase() === activeAddress.toLowerCase()
     );
-  }, [address, session]);
+  }, [activeAddress, session]);
 
   const showNotWinnerMessage = useMemo(() => {
     if (!session) return false;
@@ -200,19 +207,29 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     return claimSession.sessionId !== session.sessionId;
   }, [claimSession, session]);
 
-  const pickNumber = async () => {
-    if (!session || !selectedNumber || !GAME_CONTRACT_ADDRESS) return;
+  const hasUserRole = useMemo(() => {
+    return userRoles.some((role) => {
+      if (typeof role === "string") return role === "user";
+      if (role && typeof role === "object" && "roleName" in role) {
+        const roleName = (role as { roleName?: unknown }).roleName;
+        return typeof roleName === "string" && roleName === "user";
+      }
+      return false;
+    });
+  }, [userRoles]);
+
+  const selectNumber = async () => {
+    if (!session || !selectedNumber || !gameContract || !rpcClient) return;
+    if (!hasUserRole) {
+      setTxError('This account is missing the required "user" role.');
+      return;
+    }
 
     setIsSubmitting(true);
     setTxError(null);
     try {
       console.log("going to pick: ", selectedNumber);
-      await sendPickNumberTx(
-        session.sessionId,
-        selectedNumber,
-        prividium,
-        rpcClient,
-      );
+      await pickNumber(session.sessionId, selectedNumber);
 
       setTimeout(async () => {
         await loadSession();
@@ -235,7 +252,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     setIsSubmitting(true);
     setTxError(null);
     try {
-      await sendClaimPayoutTx(claimSession.sessionId, prividium, rpcClient);
+      await claimPayout(claimSession.sessionId);
       await loadSession();
     } catch (submitError) {
       const message =
@@ -248,17 +265,19 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
     }
   };
 
+  const winnerCongrats = (sessionId: string) => `🎉 Congrats! You are the winner of session ${sessionId}!`
+
   return (
     <>
-      <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-xl shadow-slate-200/60 sm:p-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Number Guessing Game
           </h1>
           <button
             type="button"
             onClick={() => void loadSession()}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
           >
             Refresh
           </button>
@@ -311,9 +330,9 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
             </div>
 
             {showClaimRewardFirst ? (
-              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4">
                 <p className="text-sm text-emerald-700">
-                  🎉 Congrats! You are the winner of session {claimSession?.sessionId.toString()}!
+                  {winnerCongrats(session.sessionId.toString())}
                 </p>
                 <p className="text-sm text-emerald-700">
                   Claim your reward before playing again.
@@ -323,7 +342,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                     type="button"
                     onClick={() => void claimReward()}
                     disabled={isSubmitting}
-                    className="cursor-pointer rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    className="cursor-pointer rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
                   >
                     {isSubmitting ? "Submitting..." : "Claim reward"}
                   </button>
@@ -331,7 +350,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
               </div>
             ) : isWinner ? (
               <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                congrats! You are the winner of session ({session.sessionId.toString()})
+                {winnerCongrats(session.sessionId.toString())}
               </p>
             ) : (
               <>
@@ -340,9 +359,11 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                     Your pick for this session: <strong>{myPickedNumber}</strong>
                   </p>
                 ) : (
+                  <>
                   <p className="text-sm text-slate-600">
-                    Choose one available number between 1 and {session.maxNumber}.
+                    {isSessionClosed ? "Session is closed." : `Choose one available number between 1 and ${session.maxNumber}.`}
                   </p>
+                  </>
                 )}
 
                 <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10">
@@ -378,11 +399,11 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
 
                 {!myPickedNumber && !isSessionClosed && (
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      disabled={!selectedNumber || isSubmitting}
-                      onClick={() => void pickNumber()}
-                      className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      <button
+                        type="button"
+                        disabled={!selectedNumber || isSubmitting}
+                        onClick={selectNumber}
+                        className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                       {isSubmitting ? "Submitting..." : "Submit pick"}
                     </button>
@@ -402,7 +423,7 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
                   type="button"
                   onClick={() => void claimReward()}
                   disabled={isSubmitting}
-                  className="cursor-pointer rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                  className="cursor-pointer rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300"
                 >
                   {isSubmitting ? "Submitting..." : "Claim reward"}
                 </button>
@@ -410,13 +431,13 @@ export function PlayerView({ gameContract, rpcClient, chainNowSec }: Props) {
             )}
 
             {showNotWinnerMessage && (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                 Better luck next time.
               </p>
             )}
 
             {pickedSuccess && (
-              <p className="rounded-lg border border-green-200 bg-greeen-50 p-3 text-sm text-green-700">
+              <p className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700">
                 {selectedNumber} picked!
               </p>
             )}

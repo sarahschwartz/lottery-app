@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatEther, parseEther, type Client } from "viem";
+import { formatEther, parseEther, type Client, type PublicClient } from "viem";
 import {
   formatTimeLeft,
   getPreviousSessions,
@@ -12,8 +12,9 @@ import type {
   SessionResult,
   SessionState,
 } from "../utils/types";
-import { usePrividium } from "../utils/usePrividium";
-import { sendCreateSessionTx, sendSetWinningNumberTx } from "../utils/txns";
+import { usePrividium } from "../hooks/usePrividium";
+import { useGameContract } from "../hooks/useGameContract";
+import { Check } from "lucide-react";
 
 const DEFAULT_SESSION_PAYOUT_ETH = "0.1";
 
@@ -22,9 +23,15 @@ interface Props {
   gameContract: any;
   rpcClient: Client;
   chainNowSec: number | null;
+  accountBalance: bigint | null;
 }
 
-export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
+export function AdminView({
+  gameContract,
+  rpcClient,
+  chainNowSec,
+  accountBalance,
+}: Props) {
   const { prividium } = usePrividium();
 
   const [session, setSession] = useState<SessionState | null>(null);
@@ -43,6 +50,8 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
   const [txError, setTxError] = useState<string | null>(null);
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const { createSession, setWinningNumber } = useGameContract(rpcClient as PublicClient, prividium.authorizeTransaction);
 
   const loadSession = useCallback(async () => {
     setIsLoading(true);
@@ -69,11 +78,12 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
       setSession({
         sessionId: latestSessionId,
         maxNumber: Number(rawSession[0]),
+        winningNumber: Number(rawSession[1]),
         drawTimestamp: rawSession[2],
         payout: rawSession[3],
-        winner: rawSession[4],
-        winningNumberSet: rawSession[5],
-        payoutClaimed: rawSession[6],
+        winner: rawSession[5],
+        winningNumberSet: rawSession[6],
+        payoutClaimed: rawSession[7],
       });
 
       const previous = await getPreviousSessions(
@@ -120,6 +130,42 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     return isDone && session.winningNumberSet;
   }, [isDone, session]);
 
+  const activeSession = useMemo(() => {
+    if (!session) return null;
+    return isDone ? null : session;
+  }, [isDone, session]);
+
+  const displayedPreviousSessions = useMemo(() => {
+    if (!session || !isDone) return previousSessions;
+
+    const latestClosedRow: PreviousSessionRow = {
+      sessionId: session.sessionId,
+      winningNumber: session.winningNumber,
+      payout: session.payout,
+      winner: session.winner,
+      winningNumberSet: session.winningNumberSet,
+      payoutClaimed: session.payoutClaimed,
+    };
+
+    return [
+      latestClosedRow,
+      ...previousSessions.filter((row) => row.sessionId !== session.sessionId),
+    ];
+  }, [isDone, previousSessions, session]);
+
+  const parsedPayout = useMemo(() => {
+    try {
+      return parseEther(payoutInput);
+    } catch {
+      return null;
+    }
+  }, [payoutInput]);
+
+  const payoutExceedsBalance = useMemo(() => {
+    if (parsedPayout === null || accountBalance === null) return false;
+    return parsedPayout > accountBalance;
+  }, [accountBalance, parsedPayout]);
+
   const chooseWinner = async () => {
     if (!session || !canChooseWinner) return;
 
@@ -142,12 +188,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
         return;
       }
 
-      await sendSetWinningNumberTx(
-        session.sessionId,
-        winningNumber,
-        prividium,
-        rpcClient,
-      );
+      await setWinningNumber(session.sessionId, winningNumber)
       setTxSuccess(`Winning number was set successfully: ${winningNumber}.`);
       await loadSession();
     } catch (submitError) {
@@ -161,7 +202,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     }
   };
 
-  const createSession = async () => {
+  const createNewSession = async () => {
     if (!canCreateSession) return;
 
     const maxNumber = Number(maxNumberInput);
@@ -177,16 +218,18 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
       return;
     }
 
-    let payout: bigint;
-    try {
-      payout = parseEther(payoutInput);
-    } catch {
+    if (parsedPayout === null) {
       setTxError("Payout must be a valid ETH amount.");
       return;
     }
 
+    const payout = parsedPayout;
     if (payout <= 0n) {
       setTxError("Payout must be greater than 0.");
+      return;
+    }
+    if (accountBalance !== null && payout > accountBalance) {
+      setTxError("Payout exceeds your available balance.");
       return;
     }
 
@@ -195,13 +238,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     setTxSuccess(null);
 
     try {
-      await sendCreateSessionTx(
-        maxNumber,
-        minutes,
-        payout,
-        prividium,
-        rpcClient,
-      );
+      await createSession(maxNumber, minutes, payout);
       setTxSuccess("New session created successfully.");
       await loadSession();
     } catch (submitError) {
@@ -215,14 +252,22 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
     }
   };
 
+  const isCreateDisabled =
+    isSubmitting ||
+    parsedPayout === null ||
+    parsedPayout <= 0n ||
+    payoutExceedsBalance;
+
   return (
-    <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-xl shadow-slate-200/60 sm:p-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Admin Panel</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Admin Panel
+        </h1>
         <button
           type="button"
           onClick={() => void loadSession()}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+          className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
         >
           Refresh
         </button>
@@ -240,14 +285,14 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
 
       {!isLoading && !error && (
         <div className="space-y-6">
-          {session ? (
+          {activeSession ? (
             <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">
                   Session
                 </p>
                 <p className="text-sm font-semibold text-slate-800">
-                  #{session.sessionId.toString()}
+                  #{activeSession.sessionId.toString()}
                 </p>
               </div>
               <div>
@@ -255,7 +300,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                   Max Number
                 </p>
                 <p className="text-sm font-semibold text-slate-800">
-                  {session.maxNumber}
+                  {activeSession.maxNumber}
                 </p>
               </div>
               <div>
@@ -263,7 +308,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                   Payout
                 </p>
                 <p className="text-sm font-semibold text-slate-800">
-                  {Number(formatEther(session.payout)).toFixed(3)} ETH
+                  {Number(formatEther(activeSession.payout)).toFixed(3)} ETH
                 </p>
               </div>
               <div>
@@ -273,18 +318,18 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                 <p className="text-sm font-semibold text-slate-800">
                   {!isDone
                     ? `Ends in ${formatTimeLeft(secondsLeft)}`
-                    : session.winningNumberSet
+                    : activeSession.winningNumberSet
                       ? "Complete"
                       : "Waiting for winner"}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-600">No sessions exist yet.</p>
+            <p className="text-sm text-slate-600">No open session right now.</p>
           )}
 
           {!session || canCreateSession ? (
-            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <h2 className="text-sm font-semibold text-slate-900">
                 Create New Session
               </h2>
@@ -299,7 +344,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                     step={1}
                     value={maxNumberInput}
                     onChange={(event) => setMaxNumberInput(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500"
                   />
                 </label>
                 <label className="space-y-1">
@@ -312,7 +357,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                     step={1}
                     value={minutesInput}
                     onChange={(event) => setMinutesInput(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500"
                   />
                 </label>
                 <label className="space-y-1">
@@ -323,16 +368,31 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                     type="text"
                     value={payoutInput}
                     onChange={(event) => setPayoutInput(event.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-500 ${
+                      payoutExceedsBalance
+                        ? "border-rose-300 bg-rose-50"
+                        : "border-slate-300"
+                    }`}
                     placeholder="0.1"
                   />
+                  <p className="text-xs text-slate-500">
+                    Available:{" "}
+                    {accountBalance === null
+                      ? "Loading..."
+                      : `${Number(formatEther(accountBalance)).toFixed(4)} ETH`}
+                  </p>
+                  {payoutExceedsBalance && (
+                    <p className="text-xs text-rose-600">
+                      Payout exceeds your available balance.
+                    </p>
+                  )}
                 </label>
               </div>
               <button
                 type="button"
-                onClick={() => void createSession()}
-                disabled={isSubmitting}
-                className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                onClick={createNewSession}
+                disabled={isCreateDisabled}
+                className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {isSubmitting ? "Submitting..." : "Create session"}
               </button>
@@ -340,7 +400,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
           ) : null}
 
           {session && canChooseWinner ? (
-            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <h2 className="text-sm font-semibold text-slate-900">
                 Choose Winner
               </h2>
@@ -352,7 +412,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                 type="button"
                 onClick={() => void chooseWinner()}
                 disabled={isSubmitting}
-                className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {isSubmitting ? "Submitting..." : "Pick random winner"}
               </button>
@@ -382,7 +442,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
             <h2 className="mb-3 text-sm font-semibold text-slate-900">
               Previous Sessions
             </h2>
-            {previousSessions.length === 0 ? (
+            {displayedPreviousSessions.length === 0 ? (
               <p className="text-sm text-slate-600">
                 No previous sessions yet.
               </p>
@@ -399,7 +459,7 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {previousSessions.map((row) => (
+                    {displayedPreviousSessions.map((row) => (
                       <tr
                         key={row.sessionId.toString()}
                         className="border-b border-slate-100 last:border-b-0"
@@ -421,9 +481,12 @@ export function AdminView({ gameContract, rpcClient, chainNowSec }: Props) {
                         </td>
                         <td className="px-2 py-2">
                           {row.winningNumberSet
-                            ? row.payoutClaimed
-                              ? "Yes"
-                              : "No"
+                            ? row.winner ===
+                              "0x0000000000000000000000000000000000000000"
+                              ? "-"
+                              : row.payoutClaimed
+                                ? <Check className="w-4 h-4 text-green-500" />
+                                : "No"
                             : "Pending"}
                         </td>
                       </tr>

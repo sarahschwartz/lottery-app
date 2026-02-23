@@ -4,7 +4,7 @@ import {
   type PrividiumChain,
   type UserProfile,
 } from "prividium";
-import { prividiumChain } from "./wagmi";
+import { prividiumChain } from "../utils/wagmi";
 
 let prividiumInstance: PrividiumChain | null = null;
 
@@ -41,8 +41,9 @@ function initializePrividium(): PrividiumChain {
         emit();
       },
     });
-
-    sharedIsAuthenticated = prividiumInstance.isAuthorized();
+    const isAuth = prividiumInstance.isAuthorized();
+    console.log("isAuth", isAuth)
+    sharedIsAuthenticated = isAuth;
   }
 
   return prividiumInstance;
@@ -107,9 +108,7 @@ export function usePrividium() {
     emit();
 
     try {
-      await prividium.authorize({
-        scopes: ["wallet:required", "network:required"],
-      });
+      await prividium.authorize();
 
       sharedIsAuthenticated = true;
       emit();
@@ -160,6 +159,11 @@ export function usePrividium() {
     [prividium],
   );
 
+  async function refreshUserProfile() {
+    await loadUserProfile();
+    return userProfile;
+  }
+
   return {
     isAuthenticated,
     isAuthenticating,
@@ -169,7 +173,7 @@ export function usePrividium() {
     userWallets,
     authError,
     userProfile,
-
+    refreshUserProfile,
     authenticate,
     signOut,
     getAuthHeaders,
@@ -178,7 +182,6 @@ export function usePrividium() {
     addNetworkToWallet,
     getWalletToken,
     getWalletRpcUrl,
-
     prividium,
   };
 }
