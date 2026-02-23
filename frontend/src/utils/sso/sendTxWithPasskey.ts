@@ -192,94 +192,22 @@ export async function sendTxWithPasskey(
   const usePaymaster = Boolean(ssoContracts.paymaster);
   console.log("USE PAYMASTER:", usePaymaster);
   const paymasterData = '0x' as Hex;
-  // if (usePaymaster) {
-  //   packedUserOp.paymasterAndData = concat([
-  //     ssoContracts.paymaster as Hex,
-  //     pad(toHex(ssoContracts.paymasterVerificationGasLimit), { size: 16 }),
-  //     pad(toHex(ssoContracts.paymasterPostOpGasLimit), { size: 16 }),
-  //     paymasterData
-  //   ]);
-  // }
+  if (usePaymaster) {
+    packedUserOp.paymasterAndData = concat([
+      ssoContracts.paymaster as Hex,
+      pad(toHex(ssoContracts.paymasterVerificationGasLimit), { size: 16 }),
+      pad(toHex(ssoContracts.paymasterPostOpGasLimit), { size: 16 }),
+      paymasterData
+    ]);
+  }
 
-  // Calculate UserOperation hash manually using EIP-712 for v0.8
-  const PACKED_USEROP_TYPEHASH =
-    '0x29a0bca4af4be3421398da00295e58e6d7de38cb492214754cb6a47507dd6f8e';
+  console.log("packedUserOp:", packedUserOp)
 
-  // EIP-712 domain separator - use toBytes for proper string encoding
-  const domainTypeHash = '0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f';
-  const nameHash = keccak256(toBytes('ERC4337'));
-  const versionHash = keccak256(toBytes('1'));
-
-  const domainSeparator = keccak256(
-    encodeAbiParameters(parseAbiParameters('bytes32,bytes32,bytes32,uint256,address'), [
-      domainTypeHash,
-      nameHash,
-      versionHash,
-      BigInt(prividiumChain.id),
-      ssoContracts.entryPoint
-    ])
-  );
-
-  // Hash the PackedUserOperation struct
-  const structHash = keccak256(
-    encodeAbiParameters(
-      parseAbiParameters('bytes32,address,uint256,bytes32,bytes32,bytes32,uint256,bytes32,bytes32'),
-      [
-        PACKED_USEROP_TYPEHASH,
-        packedUserOp.sender,
-        packedUserOp.nonce,
-        keccak256(packedUserOp.initCode),
-        keccak256(packedUserOp.callData),
-        packedUserOp.accountGasLimits,
-        packedUserOp.preVerificationGas,
-        packedUserOp.gasFees,
-        keccak256(packedUserOp.paymasterAndData)
-      ]
-    )
-  );
-
-  // Final EIP-712 hash
-  const userOpHash = keccak256(concat(['0x1901', domainSeparator, structHash]));
+  const userOpHash = await getUserOpHash(packedUserOp);
+  console.log("userOpHash", userOpHash)
 
   console.log('🔐 Requesting passkey authentication...');
-
-  // Sign with passkey
-  const passkeySignature = await requestPasskeyAuthentication({
-    challenge: userOpHash,
-    credentialPublicKey: new Uint8Array(passkeyCredentials.credentialPublicKey)
-  });
-
-  // Parse signature using SDK utilities
-  const response = passkeySignature.passkeyAuthenticationResponse.response;
-
-  // Decode base64url encoded data
-  const authenticatorDataHex = toHex(base64UrlToUint8Array(response.authenticatorData));
-  const credentialIdHex = toHex(
-    base64UrlToUint8Array(passkeySignature.passkeyAuthenticationResponse.id)
-  );
-
-  // Parse DER signature using SDK's unwrapEC2Signature
-  const signatureData = unwrapEC2Signature(base64UrlToUint8Array(response.signature));
-
-  // Ensure r and s are exactly 32 bytes (left-padded with zeros if needed)
-  const r = pad(toHex(signatureData.r), { size: 32 });
-  const s = pad(toHex(signatureData.s), { size: 32 });
-
-  // Encode signature for ERC-4337 bundler (matching test format)
-  const passkeySignatureEncoded = encodeAbiParameters(
-    [
-      { type: 'bytes' }, // authenticatorData
-      { type: 'string' }, // clientDataJSON
-      { type: 'bytes32[2]' }, // r and s as array
-      { type: 'bytes' } // credentialId
-    ],
-    [
-      authenticatorDataHex,
-      new TextDecoder().decode(base64UrlToUint8Array(response.clientDataJSON)),
-      [r, s],
-      credentialIdHex
-    ]
-  );
+  const passkeySignatureEncoded = await signWithPasskey(userOpHash, passkeyCredentials);
 
   // Prepend validator address (ERC-4337 format)
   packedUserOp.signature = concat([ssoContracts.webauthnValidator, passkeySignatureEncoded]);
@@ -298,14 +226,14 @@ export async function sendTxWithPasskey(
     preVerificationGas: toHex(gasOptions.preVerificationGas),
     maxFeePerGas: toHex(gasOptions.maxFeePerGas),
     maxPriorityFeePerGas: toHex(gasOptions.maxPriorityFeePerGas),
-    // paymaster: usePaymaster ? ssoContracts.paymaster : null,
-    // paymasterVerificationGasLimit: usePaymaster
-    //   ? toHex(ssoContracts.paymasterVerificationGasLimit)
-    //   : null,
-    // paymasterPostOpGasLimit: usePaymaster
-    //   ? toHex(ssoContracts.paymasterPostOpGasLimit)
-    //   : null,
-    // paymasterData: usePaymaster ? paymasterData : null,
+    paymaster: usePaymaster ? ssoContracts.paymaster : null,
+    paymasterVerificationGasLimit: usePaymaster
+      ? toHex(ssoContracts.paymasterVerificationGasLimit)
+      : null,
+    paymasterPostOpGasLimit: usePaymaster
+      ? toHex(ssoContracts.paymasterPostOpGasLimit)
+      : null,
+    paymasterData: usePaymaster ? paymasterData : null,
     signature: packedUserOp.signature
   };
 
@@ -313,10 +241,11 @@ export async function sendTxWithPasskey(
   const rpcRequest = readClient.request as unknown as (args: RpcRequestArgs) => Promise<unknown>;
 
   try {
-    await rpcRequest({
+    const gas = await rpcRequest({
       method: 'eth_estimateUserOperationGas',
       params: [userOpForBundler, ssoContracts.entryPoint],
     });
+    console.log("GAS:", gas);
   } catch (error) {
     throw new Error(`Bundler gas estimation failed: ${getRpcErrorDetails(error)}`);
   }
@@ -373,4 +302,89 @@ export async function sendTxWithPasskey(
   }
 
   throw new Error(`Transaction failed: ${JSON.stringify(receipt)}`);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getUserOpHash(packedUserOp: any){
+  // Calculate UserOperation hash manually using EIP-712 for v0.8
+  const PACKED_USEROP_TYPEHASH =
+    '0x29a0bca4af4be3421398da00295e58e6d7de38cb492214754cb6a47507dd6f8e';
+
+  // EIP-712 domain separator - use toBytes for proper string encoding
+  const domainTypeHash = '0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f';
+  const nameHash = keccak256(toBytes('ERC4337'));
+  const versionHash = keccak256(toBytes('1'));
+
+  const domainSeparator = keccak256(
+    encodeAbiParameters(parseAbiParameters('bytes32,bytes32,bytes32,uint256,address'), [
+      domainTypeHash,
+      nameHash,
+      versionHash,
+      BigInt(prividiumChain.id),
+      ssoContracts.entryPoint
+    ])
+  );
+
+  // Hash the PackedUserOperation struct
+  const structHash = keccak256(
+    encodeAbiParameters(
+      parseAbiParameters('bytes32,address,uint256,bytes32,bytes32,bytes32,uint256,bytes32,bytes32'),
+      [
+        PACKED_USEROP_TYPEHASH,
+        packedUserOp.sender,
+        packedUserOp.nonce,
+        keccak256(packedUserOp.initCode),
+        keccak256(packedUserOp.callData),
+        packedUserOp.accountGasLimits,
+        packedUserOp.preVerificationGas,
+        packedUserOp.gasFees,
+        keccak256(packedUserOp.paymasterAndData)
+      ]
+    )
+  );
+
+  // Final EIP-712 hash
+  const userOpHash = keccak256(concat(['0x1901', domainSeparator, structHash]));
+  return userOpHash;
+}
+
+async function signWithPasskey(userOpHash: Hex, passkeyCredentials: PasskeyCredential){
+    const passkeySignature = await requestPasskeyAuthentication({
+    challenge: userOpHash,
+    credentialPublicKey: new Uint8Array(passkeyCredentials.credentialPublicKey)
+  });
+
+  // Parse signature using SDK utilities
+  const response = passkeySignature.passkeyAuthenticationResponse.response;
+
+  // Decode base64url encoded data
+  const authenticatorDataHex = toHex(base64UrlToUint8Array(response.authenticatorData));
+  const credentialIdHex = toHex(
+    base64UrlToUint8Array(passkeySignature.passkeyAuthenticationResponse.id)
+  );
+
+  // Parse DER signature using SDK's unwrapEC2Signature
+  const signatureData = unwrapEC2Signature(base64UrlToUint8Array(response.signature));
+
+  // Ensure r and s are exactly 32 bytes (left-padded with zeros if needed)
+  const r = pad(toHex(signatureData.r), { size: 32 });
+  const s = pad(toHex(signatureData.s), { size: 32 });
+
+  // Encode signature for ERC-4337 bundler (matching test format)
+  const passkeySignatureEncoded = encodeAbiParameters(
+    [
+      { type: 'bytes' }, // authenticatorData
+      { type: 'string' }, // clientDataJSON
+      { type: 'bytes32[2]' }, // r and s as array
+      { type: 'bytes' } // credentialId
+    ],
+    [
+      authenticatorDataHex,
+      new TextDecoder().decode(base64UrlToUint8Array(response.clientDataJSON)),
+      [r, s],
+      credentialIdHex
+    ]
+  );
+
+  return passkeySignatureEncoded;
 }

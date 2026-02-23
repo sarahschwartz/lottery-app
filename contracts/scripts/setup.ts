@@ -2,9 +2,9 @@ import { network } from "hardhat";
 import { Abi, type Address, defineChain, PublicClient } from "viem";
 
 const GAME_CONTRACT_ADDRESS: Address =
-  "0x809d550fca64d94Bd9F66E60752A544199cfAC3D";
+  "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
 const PAYMASTER_CONTRACT_ADDRESS: Address =
-  "0xfbC22278A96299D91d41C453234d97b4F5Eb9B2d";
+  "0x0165878A594ca255338adfa4d48449f69242Eb8F";
 
 async function setup() {
   const { viem } = await network.connect("localPrividium");

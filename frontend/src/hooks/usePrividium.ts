@@ -41,8 +41,9 @@ function initializePrividium(): PrividiumChain {
         emit();
       },
     });
-
-    sharedIsAuthenticated = prividiumInstance.isAuthorized();
+    const isAuth = prividiumInstance.isAuthorized();
+    console.log("isAuth", isAuth)
+    sharedIsAuthenticated = isAuth;
   }
 
   return prividiumInstance;
