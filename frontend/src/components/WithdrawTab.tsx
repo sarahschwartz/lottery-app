@@ -1,22 +1,10 @@
 import { type ChangeEvent, useState } from "react";
-import { createViemClient, createWithdrawalsResource } from "@matterlabs/zksync-js/viem";
+import { ETH_ADDRESS } from "@matterlabs/zksync-js/core";
 import {
-  ETH_ADDRESS,
-  L2_ASSET_ROUTER_ADDRESS,
-  L2_BASE_TOKEN_ADDRESS,
-  L2_NATIVE_TOKEN_VAULT_ADDRESS,
-} from "@matterlabs/zksync-js/core";
-import {
-  createPublicClient,
-  createWalletClient,
-  defineChain,
   encodeFunctionData,
   formatEther,
-  http,
   isAddress,
   parseEther,
-  type Address,
-  type Hex,
   type PublicClient,
 } from "viem";
 import {
@@ -26,6 +14,7 @@ import {
 import { loadExistingPasskey } from "../utils/sso/passkeys";
 import { usePrividium } from "../hooks/usePrividium";
 import { BLOCK_EXPLORER_URL } from "../utils/sso/constants";
+import { useBridgeSdk } from "../hooks/useBridgeSdk";
 
 interface Props {
   balance: bigint | null;
@@ -49,6 +38,8 @@ export function WithdrawTab({ balance, rpcClient }: Props) {
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const [txHash, setTxHash] = useState<string>();
+
+  const { getZKsyncSDK } = useBridgeSdk(rpcClient);
 
   const { savedPasskey, savedAccount } = loadExistingPasskey();
   const { prividium } = usePrividium();
@@ -102,136 +93,37 @@ export function WithdrawTab({ balance, rpcClient }: Props) {
         return;
       }
 
-      const l1RpcUrl = import.meta.env.VITE_L1_RPC_URL as string | undefined;
-      if (!l1RpcUrl) {
-        throw new Error("Missing VITE_L1_RPC_URL");
+      const sdk = getZKsyncSDK();
+      if (!sdk) {
+        throw new Error("Bridge SDK not initialized");
       }
 
-      const l1ChainIdRaw = import.meta.env.VITE_L1_CHAIN_ID as
-        | string
-        | undefined;
-      if (!l1ChainIdRaw) {
-        throw new Error("Missing VITE_L1_CHAIN_ID in frontend env");
-      }
-
-      const l1ChainId = Number(l1ChainIdRaw);
-      if (!Number.isFinite(l1ChainId)) {
-        throw new Error(`Invalid VITE_L1_CHAIN_ID: ${l1ChainIdRaw}`);
-      }
-
-      const l1Chain = defineChain({
-        id: l1ChainId,
-        name:
-          (import.meta.env.VITE_L1_CHAIN_NAME as string | undefined) ??
-          `L1-${l1ChainId}`,
-        nativeCurrency: {
-          name: "Ether",
-          symbol: "ETH",
-          decimals: 18,
-        },
-        rpcUrls: {
-          default: { http: [l1RpcUrl] },
-          public: { http: [l1RpcUrl] },
-        },
-      });
-
-      const l1Client = createPublicClient({
-        chain: l1Chain,
-        transport: http(l1RpcUrl),
-      });
-      // Use the authenticated Prividium client from app state for L2 reads.
-      // Creating a fresh http client here can miss auth/session context.
-      const l2Client = rpcClient;
-      const l1Wallet = createWalletClient({
-        chain: l1Chain,
-        account: savedAccount,
-        transport: http(l1RpcUrl),
-      });
-
-      const zkClient = createViemClient({
-        l1: l1Client,
-        l2: l2Client,
-        l1Wallet,
-      });
-
-      // Debug guard: if bridgehub resolves from L2 but has no code on configured L1 RPC,
-      // the app is connected to mismatched networks (common with local stacks).
-      const bridgehubAddress = await zkClient.zks.getBridgehubAddress();
-      const bridgehubCode = await l1Client.getCode({
-        address: bridgehubAddress as Address,
-      });
-      if (!bridgehubCode || bridgehubCode === "0x") {
-        throw new Error(
-          `Bridgehub ${bridgehubAddress} not deployed on configured L1 RPC (${l1RpcUrl}). Check VITE_L1_RPC_URL/VITE_L1_CHAIN_ID.`,
-        );
-      }
-      const resolvedAddresses = await zkClient.ensureAddresses();
-      const zeroAssetId =
-        "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
-
-      // ETH-only token resolver override:
-      // avoids SDK token metadata RPC calls like originChainId(assetId),
-      // which may be blocked by Prividium RPC policy.
-      const customTokens = {
-        resolve: async () => ({
-          kind: "eth" as const,
-          l1: ETH_ADDRESS,
-          l2: ETH_ADDRESS,
-          assetId: zeroAssetId,
-          originChainId: 0n,
-          isChainEthBased: true,
-          baseTokenAssetId: zeroAssetId,
-          wethL1: L2_BASE_TOKEN_ADDRESS,
-          wethL2: L2_BASE_TOKEN_ADDRESS,
-        }),
-        l1TokenFromAssetId: async () => ETH_ADDRESS,
-      };
-      const customContracts = {
-        addresses: async () => ({
-          ...resolvedAddresses,
-          l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
-          l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
-          l2BaseTokenSystem: L2_BASE_TOKEN_ADDRESS,
-        }),
-      };
-
-      const withdrawals = createWithdrawalsResource(
-        zkClient,
-        customTokens as never,
-        customContracts as never,
-      );
-      const gasOptions = buildGasOptions();
-      const withdrawPlan = await withdrawals.prepare({
+      const params = {
         token: ETH_ADDRESS,
         amount: parsedAmount,
-        to: recipient as Address,
-        // Avoid protected eth_estimateGas call on Prividium RPC by supplying explicit gas.
-        l2TxOverrides: {
-          gasLimit: gasOptions.callGasLimit,
-          maxFeePerGas: gasOptions.maxFeePerGas,
-          maxPriorityFeePerGas: gasOptions.maxPriorityFeePerGas,
-        },
-      });
+        to: recipient,
+      } as const;
 
-      const withdrawStep =
-        withdrawPlan.steps.find((step) => step.kind.includes("withdraw")) ??
-        withdrawPlan.steps.at(-1);
-      if (!withdrawStep) throw new Error("Failed to build withdraw step");
+      const plan = await sdk.withdrawals.prepare(params);
+      console.log("PREPARE:", plan);
 
-      const txRequest = withdrawStep.tx;
-      const calldata = encodeFunctionData({
-        abi: txRequest.abi,
-        functionName: txRequest.functionName,
-        args: txRequest.args,
+      const planTx = plan.steps[0].tx;
+
+      const data = encodeFunctionData({
+        abi: planTx.abi,
+        functionName: planTx.functionName,
+        args: planTx.args,
       });
 
       const txData = [
         {
-          to: txRequest.address as Address,
-          value: txRequest.value ?? parsedAmount,
-          data: calldata as Hex,
+          to: planTx.address,
+          value: parsedAmount,
+          data,
         },
       ];
+
+      const gasOptions = buildGasOptions();
 
       const hash = await sendTxWithPasskey(
         savedAccount,
