@@ -12,8 +12,7 @@ import { AdminView } from "./AdminView";
 import { PlayerView } from "./PlayerView";
 import { PasskeyLogin } from "./PasskeyLogin";
 import { Header } from "./Header";
-import { SendTab } from "./SendTab";
-import { WithdrawTab } from "./WithdrawTab";
+import { EthTransferTab } from "./EthTransferTab";
 import type { Tab } from "../utils/types";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
@@ -113,10 +112,7 @@ export function LoggedInView({
                   />
                 ))}
               {tab === "send" && (
-                <div className="space-y-4">
-                  <WithdrawTab balance={accountBalance} rpcClient={rpcClient} />
-                  <SendTab balance={accountBalance} rpcClient={rpcClient} />
-                </div>
+                <EthTransferTab balance={accountBalance} rpcClient={rpcClient} />
               )}
             </>
           ) : (

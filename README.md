@@ -137,7 +137,8 @@ Then open the app to guess a number for the session.
 
 Once the time has passed for the session the admin account can choose a winner.
 
-> Note: without other activity on your chain, you will need to send a first transaction for the block timestamp to advance.
+> Note: without any other activity on your chain, you will need to send another transaction for the block timestamp to advance.
+> Try sending a transaction after the expiration time should have passed.
 
 The admin panel will show an option to choose a winning number once the block timestamp has advanced passed the deadline.
 

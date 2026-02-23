@@ -8,7 +8,6 @@ export function formatTimeLeft(seconds: number): string {
 
 export function getRandomWinningNumber(maxNumber: number): number {
   console.log("MAX NUMBER:", maxNumber);
-  console.log("window.crypto", window.crypto);
   if (maxNumber <= 1) return 1;
 
   const maxUint32 = 0xffffffff; // 2^32 - 1
