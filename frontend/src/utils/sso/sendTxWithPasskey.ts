@@ -123,21 +123,6 @@ export async function sendTxWithPasskey(
     }
   }
 
-  // Surface contract-level reverts early (e.g. "session closed", "already picked")
-  // instead of generic bundler errors.
-  for (const call of txData) {
-    try {
-      await readClient.call({
-        account: accountAddress,
-        to: call.to,
-        data: call.data,
-        value: call.value,
-      });
-    } catch (error) {
-      throw new Error(`Transaction would revert: ${getRpcErrorDetails(error)}`);
-    }
-  }
-
   // Create UserOperation for ETH transfer
   // Use ERC-7579 execute(bytes32 mode, bytes executionData) format
   const modeCode = pad('0x01', { dir: 'right', size: 32 }); // simple batch execute
@@ -178,13 +163,18 @@ export async function sendTxWithPasskey(
     if (!Number.isSafeInteger(nonceNumber)) {
       throw new Error('Nonce too large to authorize transaction');
     }
-    await authorizeTx({
+
+    console.log("NONCE:", nonceNumber)
+    console.log("primary call:", primaryCall)
+    const auth = await authorizeTx({
       walletAddress: accountAddress,
       toAddress: primaryCall.to,
       nonce: nonceNumber,
       calldata: primaryCall.data,
       value: primaryCall.value
     });
+
+    console.log("AUTH:", auth)
 
   // Create PackedUserOperation for v0.8
   const packedUserOp = {
@@ -200,15 +190,16 @@ export async function sendTxWithPasskey(
   };
 
   const usePaymaster = Boolean(ssoContracts.paymaster);
+  console.log("USE PAYMASTER:", usePaymaster);
   const paymasterData = '0x' as Hex;
-  if (usePaymaster) {
-    packedUserOp.paymasterAndData = concat([
-      ssoContracts.paymaster as Hex,
-      pad(toHex(ssoContracts.paymasterVerificationGasLimit), { size: 16 }),
-      pad(toHex(ssoContracts.paymasterPostOpGasLimit), { size: 16 }),
-      paymasterData
-    ]);
-  }
+  // if (usePaymaster) {
+  //   packedUserOp.paymasterAndData = concat([
+  //     ssoContracts.paymaster as Hex,
+  //     pad(toHex(ssoContracts.paymasterVerificationGasLimit), { size: 16 }),
+  //     pad(toHex(ssoContracts.paymasterPostOpGasLimit), { size: 16 }),
+  //     paymasterData
+  //   ]);
+  // }
 
   // Calculate UserOperation hash manually using EIP-712 for v0.8
   const PACKED_USEROP_TYPEHASH =
@@ -307,14 +298,14 @@ export async function sendTxWithPasskey(
     preVerificationGas: toHex(gasOptions.preVerificationGas),
     maxFeePerGas: toHex(gasOptions.maxFeePerGas),
     maxPriorityFeePerGas: toHex(gasOptions.maxPriorityFeePerGas),
-    paymaster: usePaymaster ? ssoContracts.paymaster : null,
-    paymasterVerificationGasLimit: usePaymaster
-      ? toHex(ssoContracts.paymasterVerificationGasLimit)
-      : null,
-    paymasterPostOpGasLimit: usePaymaster
-      ? toHex(ssoContracts.paymasterPostOpGasLimit)
-      : null,
-    paymasterData: usePaymaster ? paymasterData : null,
+    // paymaster: usePaymaster ? ssoContracts.paymaster : null,
+    // paymasterVerificationGasLimit: usePaymaster
+    //   ? toHex(ssoContracts.paymasterVerificationGasLimit)
+    //   : null,
+    // paymasterPostOpGasLimit: usePaymaster
+    //   ? toHex(ssoContracts.paymasterPostOpGasLimit)
+    //   : null,
+    // paymasterData: usePaymaster ? paymasterData : null,
     signature: packedUserOp.signature
   };
 

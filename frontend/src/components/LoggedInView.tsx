@@ -13,6 +13,7 @@ import { PlayerView } from "./PlayerView";
 import { PasskeyLogin } from "./PasskeyLogin";
 import { Header } from "./Header";
 import { SendTab } from "./SendTab";
+import { WithdrawTab } from "./WithdrawTab";
 import type { Tab } from "../utils/types";
 
 const GAME_CONTRACT_ADDRESS = import.meta.env
@@ -31,7 +32,7 @@ export function LoggedInView({
   address,
   rpcClient,
   accountBalance,
-  tab
+  tab,
 }: Props) {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [chainNowSec, setChainNowSec] = useState<number | null>(null);
@@ -76,12 +77,10 @@ export function LoggedInView({
   useEffect(() => {
     async function getContractAdmin() {
       if (!isAuthenticated || !gameContract) {
-        console.log("not authenticated or no contract");
         setIsAdmin(false);
         return;
       }
       if (!address || !isAddress(address)) {
-        console.log("missing wallet address");
         setIsAdmin(false);
         return;
       }
@@ -98,28 +97,27 @@ export function LoggedInView({
         <>
           {address && gameContract && rpcClient ? (
             <>
-            {tab === 'game' ? (
-              <>
-              {isAdmin ? (
-                <AdminView
-                  gameContract={gameContract}
-                  rpcClient={rpcClient}
-                  chainNowSec={chainNowSec}
-                  accountBalance={accountBalance}
-                />
-              ) : (
-                <PlayerView
-                  gameContract={gameContract}
-                  rpcClient={rpcClient}
-                  chainNowSec={chainNowSec}
-                />
+              {tab === "game" &&
+                (isAdmin ? (
+                  <AdminView
+                    gameContract={gameContract}
+                    rpcClient={rpcClient}
+                    chainNowSec={chainNowSec}
+                    accountBalance={accountBalance}
+                  />
+                ) : (
+                  <PlayerView
+                    gameContract={gameContract}
+                    rpcClient={rpcClient}
+                    chainNowSec={chainNowSec}
+                  />
+                ))}
+              {tab === "send" && (
+                <div className="space-y-4">
+                  <WithdrawTab balance={accountBalance} rpcClient={rpcClient} />
+                  <SendTab balance={accountBalance} rpcClient={rpcClient} />
+                </div>
               )}
-              </>
-            ) : (
-              <>
-              <SendTab balance={accountBalance} rpcClient={rpcClient} />
-              </>
-            )}
             </>
           ) : (
             <>
