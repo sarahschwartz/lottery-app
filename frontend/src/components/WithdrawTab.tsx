@@ -95,7 +95,7 @@ export function WithdrawTab({ balance, rpcClient }: Props) {
 
       const sdk = getZKsyncSDK();
       if (!sdk) {
-        throw new Error("Bridge SDK not initialized");
+        throw new Error("SDK not initialized");
       }
 
       const params = {
@@ -105,7 +105,6 @@ export function WithdrawTab({ balance, rpcClient }: Props) {
       } as const;
 
       const plan = await sdk.withdrawals.prepare(params);
-      console.log("PREPARE:", plan);
 
       const planTx = plan.steps[0].tx;
 

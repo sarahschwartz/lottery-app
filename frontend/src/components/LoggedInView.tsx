@@ -114,6 +114,9 @@ export function LoggedInView({
                 ))}
               {tab === "send" && (
                 <div className="space-y-4">
+                  <div className="flex items-center justify-center w-full p-2 text-lg">
+                    <div>🚧 Under Construction 🚧</div>
+                  </div>
                   <WithdrawTab balance={accountBalance} rpcClient={rpcClient} />
                   <SendTab balance={accountBalance} rpcClient={rpcClient} />
                 </div>

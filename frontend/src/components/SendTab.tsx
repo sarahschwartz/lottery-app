@@ -110,7 +110,7 @@ export function SendTab({ balance, rpcClient }: Props) {
     >
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div id="send-money" className="text-2xl font-semibold tracking-tight text-slate-900">
-          Send Money
+          Send ETH on Prividium
         </div>
       </div>
       <div className="space-y-6">
