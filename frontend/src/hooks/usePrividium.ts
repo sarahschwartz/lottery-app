@@ -108,9 +108,7 @@ export function usePrividium() {
     emit();
 
     try {
-      await prividium.authorize({
-        scopes: ["wallet:required", "network:required"],
-      });
+      await prividium.authorize();
 
       sharedIsAuthenticated = true;
       emit();
